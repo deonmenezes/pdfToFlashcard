@@ -191,29 +191,29 @@ const PDFQuizGenerator = () => {
         const mockQuestions: GeneratedQuestions = {
           flashcards: [
             {
-              question: "What is the main purpose of QuizGenius?",
+              question: "What is the main purpose of quizitt?",
               answer: "To transform PDFs into interactive quizzes, including flashcards and multiple-choice questions for enhanced learning."
             },
             {
-              question: "What are the three steps to generate questions with QuizGenius?",
+              question: "What are the three steps to generate questions with quizitt?",
               answer: "1. Upload your PDF, 2. Generate Questions, 3. Study & Download."
             },
             {
-              question: "What types of questions does QuizGenius generate?",
+              question: "What types of questions does quizitt generate?",
               answer: "Flashcards and multiple-choice questions."
             },
             {
-              question: "Who are the target users for QuizGenius?",
+              question: "Who are the target users for quizitt?",
               answer: "Students and educators who want to create study materials from PDF documents."
             },
             {
-              question: "What technology powers QuizGenius?",
+              question: "What technology powers quizitt?",
               answer: "AI algorithms that analyze PDF content to automatically create relevant questions."
             }
           ],
           mcqs: [
             {
-              question: "What is the main feature of QuizGenius?",
+              question: "What is the main feature of quizitt?",
               options: [
                 "Editing PDF documents",
                 "Transforming PDFs into interactive quizzes",
@@ -223,7 +223,7 @@ const PDFQuizGenerator = () => {
               correctAnswer: "Transforming PDFs into interactive quizzes"
             },
             {
-              question: "Which of the following is NOT a feature mentioned in the QuizGenius website?",
+              question: "Which of the following is NOT a feature mentioned in the quizitt website?",
               options: [
                 "AI-Generated Questions",
                 "Interactive Flashcards",
@@ -233,7 +233,7 @@ const PDFQuizGenerator = () => {
               correctAnswer: "Video Tutorials"
             },
             {
-              question: "How many steps are involved in the QuizGenius process?",
+              question: "How many steps are involved in the quizitt process?",
               options: [
                 "Two",
                 "Three",
@@ -253,7 +253,7 @@ const PDFQuizGenerator = () => {
               correctAnswer: "Prof. Michael Brown"
             },
             {
-              question: "What type of content does QuizGenius analyze?",
+              question: "What type of content does quizitt analyze?",
               options: [
                 "Only images",
                 "Only text documents",

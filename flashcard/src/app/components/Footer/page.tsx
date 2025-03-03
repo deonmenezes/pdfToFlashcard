@@ -7,7 +7,7 @@ const Footer = () => (
         <div>
           <div className="flex items-center space-x-2 mb-6">
             <BookOpen className="h-8 w-8 text-blue-400" />
-            <span className="font-bold text-xl text-white">QuizGenius</span>
+            <span className="font-bold text-xl text-white">quizitt</span>
           </div>
           <p className="text-gray-400 mb-6">
             Transforming the way you study with AI-powered learning tools that adapt to your needs.
@@ -63,7 +63,7 @@ const Footer = () => (
       </div>
       
       <div className="mt-12 pt-8 border-t border-gray-800 text-center text-gray-400">
-        <p>© 2025 QuizGenius. All rights reserved.</p>
+        <p>© 2025 quizitt. All rights reserved.</p>
       </div>
     </div>
   </footer>

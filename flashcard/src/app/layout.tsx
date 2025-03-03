@@ -1,33 +1,28 @@
-"use client";
-
+// app/layout.tsx
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
-import Navigation from "./components/Navigation/page";
+import Navigation from "./components/Navigation/page"; // This component can be client-side
 import Footer from "./components/Footer/page";
-import { useState } from "react";
 
 const inter = Inter({ subsets: ["latin"] });
 
+export const metadata: Metadata = {
+  title: "My Next.js App",
+  icons: {
+    icon: "/quizitt-favicon.png",
+  },
+};
 
 export default function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const [isDarkMode, setIsDarkMode] = useState(false);
-
-  const toggleTheme = () => {
-    setIsDarkMode((prev) => !prev);
-    document.documentElement.classList.toggle("dark");
-  };
-
   return (
     <html lang="en">
       <body className={inter.className}>
-        <Navigation isDarkMode={false} toggleTheme={function (): void {
-          throw new Error("Function not implemented.");
-        } } />
+        <Navigation /> {/* Navigation component is client-side */}
         <main>{children}</main>
         <Footer />
       </body>
