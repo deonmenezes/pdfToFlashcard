@@ -1,6 +1,26 @@
+'use client'
+import React from 'react';
 import { motion } from "framer-motion";
+export default function TestimonialSection() {
+  const testimonials = [
+    {
+      quote: "This tool has completely changed how I study for my medical exams. The AI-generated questions are incredibly relevant and have helped me retain complex information more effectively.",
+      author: "Dr. Sarah Johnson",
+      role: "Medical Resident"
+    },
+    {
+      quote: "As a teacher, I've been looking for a way to quickly create quiz materials from my lecture notes. This tool saves me hours of work and my students love the interactive flashcards!",
+      author: "Prof. Michael Brown",
+      role: "University Professor"
+    },
+    {
+      quote: "I used the PDF Quiz Generator to prepare for my certification exam. The variety of question formats helped me identify my weak areas and focus my studies. I passed with flying colors!",
+      author: "Alex Rodriguez",
+      role: "IT Professional"
+    }
+  ];
 
-const TestimonialsSection = () => (
+  return (
     <section id="testimonials" className="py-20 px-4 sm:px-6 lg:px-8 bg-white dark:bg-gray-900">
       <div className="max-w-7xl mx-auto">
         <div className="text-center mb-16">
@@ -11,23 +31,7 @@ const TestimonialsSection = () => (
         </div>
         
         <div className="grid md:grid-cols-3 gap-8">
-          {[
-            {
-              quote: "This tool has completely changed how I study for my medical exams. The AI-generated questions are incredibly relevant and have helped me retain complex information more effectively.",
-              author: "Dr. Sarah Johnson",
-              role: "Medical Resident"
-            },
-            {
-              quote: "As a teacher, I've been looking for a way to quickly create quiz materials from my lecture notes. This tool saves me hours of work and my students love the interactive flashcards!",
-              author: "Prof. Michael Brown",
-              role: "University Professor"
-            },
-            {
-              quote: "I used the PDF Quiz Generator to prepare for my certification exam. The variety of question formats helped me identify my weak areas and focus my studies. I passed with flying colors!",
-              author: "Alex Rodriguez",
-              role: "IT Professional"
-            }
-          ].map((testimonial, index) => (
+          {testimonials.map((testimonial, index) => (
             <motion.div
               key={index}
               initial={{ opacity: 0, y: 20 }}
@@ -54,4 +58,4 @@ const TestimonialsSection = () => (
       </div>
     </section>
   );
-export default TestimonialsSection;
+}
