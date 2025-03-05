@@ -246,46 +246,71 @@ const QuizPage: React.FC<QuizPageProps> = ({
             </h2>
           </div>
           
-          <div className="flex flex-wrap gap-2">
+          {/* Tab Navigation */}
+          <div className="flex flex-wrap justify-center gap-2 sm:gap-3 w-full">
             <Button 
-              className={`px-3 py-2 rounded-lg ${
-                activeTab === "flashcards" 
-                  ? "bg-blue-500 text-white" 
-                  : "bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-white"
-              }`}
+              className={`
+                px-3 py-2 rounded-lg text-xs sm:text-sm 
+                transition-all duration-200 ease-in-out
+                flex items-center justify-center
+                ${
+                  activeTab === "flashcards" 
+                    ? "bg-blue-500 text-white" 
+                    : "bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-white hover:bg-gray-300 dark:hover:bg-gray-600"
+                }
+              `}
               onClick={() => handleTabChange("flashcards")}
             >
-              Flashcards
+              <span className="hidden sm:inline">Flashcards</span>
+              <span className="sm:hidden">Cards</span>
             </Button>
             <Button 
-              className={`px-3 py-2 rounded-lg ${
-                activeTab === "mcq" 
-                  ? "bg-blue-500 text-white" 
-                  : "bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-white"
-              }`}
+              className={`
+                px-3 py-2 rounded-lg text-xs sm:text-sm 
+                transition-all duration-200 ease-in-out
+                flex items-center justify-center
+                ${
+                  activeTab === "mcq" 
+                    ? "bg-blue-500 text-white" 
+                    : "bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-white hover:bg-gray-300 dark:hover:bg-gray-600"
+                }
+              `}
               onClick={() => handleTabChange("mcq")}
             >
-              Multiple Choice
+              <span className="hidden sm:inline">Multiple Choice</span>
+              <span className="sm:hidden">MCQ</span>
             </Button>
             <Button 
-              className={`px-3 py-2 rounded-lg ${
-                activeTab === "matching" 
-                  ? "bg-blue-500 text-white" 
-                  : "bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-white"
-              }`}
+              className={`
+                px-3 py-2 rounded-lg text-xs sm:text-sm 
+                transition-all duration-200 ease-in-out
+                flex items-center justify-center
+                ${
+                  activeTab === "matching" 
+                    ? "bg-blue-500 text-white" 
+                    : "bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-white hover:bg-gray-300 dark:hover:bg-gray-600"
+                }
+              `}
               onClick={() => handleTabChange("matching")}
             >
-              Match Items
+              <span className="hidden sm:inline">Match Items</span>
+              <span className="sm:hidden">Match</span>
             </Button>
             <Button 
-              className={`px-3 py-2 rounded-lg ${
-                activeTab === "truefalse" 
-                  ? "bg-blue-500 text-white" 
-                  : "bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-white"
-              }`}
+              className={`
+                px-3 py-2 rounded-lg text-xs sm:text-sm 
+                transition-all duration-200 ease-in-out
+                flex items-center justify-center
+                ${
+                  activeTab === "truefalse" 
+                    ? "bg-blue-500 text-white" 
+                    : "bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-white hover:bg-gray-300 dark:hover:bg-gray-600"
+                }
+              `}
               onClick={() => handleTabChange("truefalse")}
             >
-              True/False
+              <span className="hidden sm:inline">True/False</span>
+              <span className="sm:hidden">T/F</span>
             </Button>
           </div>
         </div>
