@@ -4,35 +4,15 @@ import { Button } from "@/components/ui/button";
 import QuizPage from '../quizPage/quizPage';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Switch } from "@/components/ui/switch"; // Import Switch component
-import { FILE } from 'dns';
+import { MCQ } from '../components/MCQS/mcq-types';
+import { MCQGenerator } from '../components/MCQS/mcq-utils';
+import { Flashcard } from '../components/flashcards/flashcard-types';
+import { FlashcardGenerator } from '../components/flashcards/flashcard-utils';
+import { TrueFalseQuestion } from '../components/trueOrFalse/true-false-type';
+import { TrueFalseQuestionGenerator } from '../components/trueOrFalse/true-false-utils';
+import { MatchingQuestion } from '../components/matching-questions/matching-question-type';
+import { MatchingQuestionGenerator } from '../components/matching-questions/matching-question-utils';
 
-// Define TypeScript interfaces for all question types
-interface Flashcard {
-  question: string;
-  answer: string;
-}
-
-interface MCQ {
-  question: string;
-  options: string[];
-  correctAnswer: number;
-}
-
-interface MatchingQuestion {
-  id: number;
-  question: string;
-  leftItems: string[];
-  rightItems: string[];
-  correctMatches: number[];
-}
-
-interface TrueFalseQuestion {
-  id: number;
-  question: string;
-  isTrue: boolean;
-}
-
-// Define API request type
 interface GeminiRequest {
   fileContent: string;
   fileName: string;
@@ -45,7 +25,7 @@ interface GeminiResponse {
   flashcards: Flashcard[];
   mcqs: MCQ[];
   matchingQuestions: MatchingQuestion[];
-  trueFalseQuestions: TrueFalseQuestion[];
+  trueFalseQuestions: TrueFalseQuestion[];  // Now using the imported TrueFalseQuestion type
 }
 
 // Define supported file types
@@ -74,80 +54,15 @@ const HeroSection: React.FC = () => {
   const [totalFiles, setTotalFiles] = useState<number>(0);
   const [processedFiles, setProcessedFiles] = useState<number>(0);
   const [processingFilename, setProcessingFilename] = useState<string>('');
-  
   // New state variables for custom prompt
   const [useCustomPrompt, setUseCustomPrompt] = useState<boolean>(false);
   const [customPrompt, setCustomPrompt] = useState<string>('');
-
   // Fallback demo data (in case API fails)
-  const demoFlashcards: Flashcard[] = [
-    { question: "What is photosynthesis?", answer: "The process by which green plants and some other organisms use sunlight to synthesize foods with the help of chlorophyll." },
-    { question: "What is the capital of France?", answer: "Paris" },
-    { question: "What is Newton's First Law?", answer: "An object at rest stays at rest and an object in motion stays in motion with the same speed and in the same direction unless acted upon by an unbalanced force." }
-  ];
+  const demoFlashcards: Flashcard[] = FlashcardGenerator.getDemoFlashcards();
+  const demoMCQs: MCQ[] = MCQGenerator.getDemoMCQs();
+  const demoMatchingQuestions: MatchingQuestion[] = MatchingQuestionGenerator.getDemoMatchingQuestions();
+  const demoTrueFalseQuestions: TrueFalseQuestion[] = TrueFalseQuestionGenerator.getDemoTrueFalseQuestions();
 
-  const demoMCQs: MCQ[] = [
-    { 
-      question: "What is the main function of mitochondria?", 
-      options: [
-        "Protein synthesis", 
-        "Cellular respiration", 
-        "Photosynthesis", 
-        "Cell division"
-      ], 
-      correctAnswer: 1 
-    },
-    { 
-      question: "Which planet is known as the Red Planet?", 
-      options: [
-        "Venus", 
-        "Jupiter", 
-        "Mars", 
-        "Saturn"
-      ], 
-      correctAnswer: 2 
-    }
-  ];
-
-  const demoMatchingQuestions: MatchingQuestion[] = [
-    {
-      id: 1,
-      question: "Match the chemical compounds with their formulas:",
-      leftItems: ["Water", "Oxygen", "Carbon Dioxide", "Glucose"],
-      rightItems: ["H₂O", "O₂", "CO₂", "C₆H₁₂O₆"],
-      correctMatches: [0, 1, 2, 3]
-    },
-    {
-      id: 2,
-      question: "Match the countries with their capitals:",
-      leftItems: ["France", "Germany", "Italy", "Spain"],
-      rightItems: ["Paris", "Berlin", "Rome", "Madrid"],
-      correctMatches: [0, 1, 2, 3]
-    }
-  ];
-
-  const demoTrueFalseQuestions: TrueFalseQuestion[] = [
-    {
-      id: 1,
-      question: "The Earth revolves around the Sun.",
-      isTrue: true
-    },
-    {
-      id: 2,
-      question: "The human body has 206 bones.",
-      isTrue: true
-    },
-    {
-      id: 3,
-      question: "Sound travels faster in water than in air.",
-      isTrue: true
-    },
-    {
-      id: 4,
-      question: "The Great Wall of China is visible from space with the naked eye.",
-      isTrue: false
-    }
-  ];
 
   const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
@@ -252,21 +167,7 @@ const HeroSection: React.FC = () => {
     return SUPPORTED_FILE_TYPES.some(ext => fileName.endsWith(ext));
   };
 
-  const getFileTypeIcon = (fileName: string) => {
-    const lowerCaseName = fileName.toLowerCase();
-    
-    if (lowerCaseName.endsWith('.pdf')) {
-      return 'M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z';
-    } else if (lowerCaseName.endsWith('.ppt') || lowerCaseName.endsWith('.pptx')) {
-      return 'M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z M12 7v5m0 2v.01';
-    } else if (lowerCaseName.endsWith('.doc') || lowerCaseName.endsWith('.docx')) {
-      return 'M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z M9 9h6m-6 4h6';
-    } else if (lowerCaseName.endsWith('.xls') || lowerCaseName.endsWith('.xlsx') || lowerCaseName.endsWith('.csv')) {
-      return 'M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z M9 7h1m-1 4h6m-6 4h6';
-    } else {
-      return 'M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z';
-    }
-  };
+  
 
   const readFileContent = (file: File): Promise<string> => {
     return new Promise((resolve, reject) => {
@@ -338,16 +239,30 @@ const HeroSection: React.FC = () => {
         
         if (!response.ok) {
           console.warn(`API returned error status: ${response.status} ${response.statusText}`);
-          // Instead of throwing immediately, we'll return demo data
+          // Return demo data if API call fails
           return {
-            flashcards: demoFlashcards,
-            mcqs: demoMCQs,
+            flashcards: FlashcardGenerator.getDemoFlashcards(),
+            mcqs: MCQGenerator.getDemoMCQs(),
             matchingQuestions: demoMatchingQuestions,
-            trueFalseQuestions: demoTrueFalseQuestions
+            trueFalseQuestions: TrueFalseQuestionGenerator.getDemoTrueFalseQuestions()
           };
         }
         
         const data: GeminiResponse = await response.json();
+        
+        // Process Flashcards
+        const processedFlashcards = FlashcardGenerator.processFlashcards(data.flashcards);
+  
+        // Process MCQs: shuffle options and validate
+        let processedMCQs = data.mcqs.map(mcq => 
+          MCQGenerator.shuffleMCQOptions(mcq)
+        );
+  
+        // Validate MCQs
+        if (!MCQGenerator.validateMCQs(processedMCQs)) {
+          console.warn('Some MCQs are invalid. Falling back to demo MCQs.');
+          processedMCQs = MCQGenerator.getDemoMCQs();
+        }
         
         // Process matching questions to shuffle right items
         const processedMatchingQuestions = data.matchingQuestions.map(q => {
@@ -378,11 +293,16 @@ const HeroSection: React.FC = () => {
           };
         });
         
+        // Process True/False questions
+        const processedTrueFalseQuestions = TrueFalseQuestionGenerator.balanceTrueFalseQuestions(
+          data.trueFalseQuestions
+        );
+        
         return {
-          flashcards: data.flashcards,
-          mcqs: data.mcqs,
+          flashcards: processedFlashcards,
+          mcqs: processedMCQs,
           matchingQuestions: processedMatchingQuestions,
-          trueFalseQuestions: data.trueFalseQuestions
+          trueFalseQuestions: processedTrueFalseQuestions
         };
       } catch (fetchError) {
         console.error("API fetch error:", fetchError);
@@ -390,10 +310,10 @@ const HeroSection: React.FC = () => {
         
         // Return demo data as fallback
         return {
-          flashcards: demoFlashcards,
-          mcqs: demoMCQs,
+          flashcards: FlashcardGenerator.getDemoFlashcards(),
+          mcqs: MCQGenerator.getDemoMCQs(),
           matchingQuestions: demoMatchingQuestions,
-          trueFalseQuestions: demoTrueFalseQuestions
+          trueFalseQuestions: TrueFalseQuestionGenerator.getDemoTrueFalseQuestions()
         };
       }
       
@@ -403,71 +323,17 @@ const HeroSection: React.FC = () => {
       
       // Return demo data as fallback
       return {
-        flashcards: demoFlashcards,
-        mcqs: demoMCQs,
+        flashcards: FlashcardGenerator.getDemoFlashcards(),
+        mcqs: MCQGenerator.getDemoMCQs(),
         matchingQuestions: demoMatchingQuestions.map(q => ({
           ...q,
           // Add random shuffling for demo data too
           correctMatches: q.correctMatches.map((_, i) => i)
         })),
-        trueFalseQuestions: demoTrueFalseQuestions
+        trueFalseQuestions: TrueFalseQuestionGenerator.getDemoTrueFalseQuestions()
       };
     }
   };
-
-  const handleFile = async (file: File) => {
-    setFileError(null);
-    setApiError(null);
-    setExtractedTextPreview(null);
-    
-    if (!checkFileType(file)) {
-      setFileError(`File type not supported. Please upload one of these formats: ${SUPPORTED_FILE_TYPES.join(', ')}`);
-      return;
-    }
-    
-    setFile(file);
-    setProcessingStatus('reading');
-    
-    try {
-      // Reading file
-      const fileContent = await readFileContent(file);
-      setProcessingStatus('extracting');
-      
-      // Show preview of content being processed
-      if (file.type.includes('text')) {
-        const textPreview = fileContent.substring(0, 200) + (fileContent.length > 200 ? '...' : '');
-        setExtractedTextPreview(textPreview);
-      } else {
-        setExtractedTextPreview("Extracting content from " + file.name + "...");
-      }
-      
-      setProcessingStatus('generating');
-      const generatedQuestions = await generateQuestionsWithGemini(file);
-    
-      // Update state with generated questions
-      setFlashcards(generatedQuestions.flashcards);
-      setMcqs(generatedQuestions.mcqs);
-      setMatchingQuestions(generatedQuestions.matchingQuestions);
-      setTrueFalseQuestions(generatedQuestions.trueFalseQuestions);
-      
-      // Show the Quiz page
-      setShowQuizPage(true);
-    } catch (error) {
-      console.error("Error processing file:", error);
-      setApiError("An error occurred while processing your file. Please try again.");
-      
-      // Fallback to demo data
-      setFlashcards(demoFlashcards);
-      setMcqs(demoMCQs);
-      setMatchingQuestions(demoMatchingQuestions);
-      setTrueFalseQuestions(demoTrueFalseQuestions);
-      
-      setShowQuizPage(true);
-    } finally {
-      setProcessingStatus('idle');
-    }
-  };
-
   return (
     <AnimatePresence mode="sync">
       {!showQuizPage ? (
