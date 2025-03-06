@@ -6,6 +6,7 @@ import Image from "next/image";
 import { Menu, X, Users, LogOut, User, Settings, CreditCard, Star } from "lucide-react";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
+import ARVRNavButton from "../arvrButton/page";
 import { 
   DropdownMenu, 
   DropdownMenuContent, 
@@ -19,7 +20,7 @@ import {
   onAuthStateChanged, 
   signOut 
 } from "firebase/auth";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import { toast } from "sonner";
 import { auth } from "../../../../firebaseConfig";
 
@@ -32,6 +33,10 @@ const Navigation: FC<NavigationProps> = () => {
   const [isStarAnimating, setIsStarAnimating] = useState(false);
   const [isButtonClicked, setIsButtonClicked] = useState(false);
   const router = useRouter();
+  const pathname = usePathname();
+  
+  // Check if current route is /arvr
+  const isARVRPage = pathname === '/arvr';
 
   useEffect(() => {
     // Check authentication state
@@ -55,6 +60,9 @@ const Navigation: FC<NavigationProps> = () => {
       }
     });
 
+    // Check initial dark mode state from document
+    setIsDarkMode(document.documentElement.classList.contains("dark"));
+
     // Cleanup subscription on unmount
     return () => unsubscribe();
   }, [auth]);
@@ -70,7 +78,8 @@ const Navigation: FC<NavigationProps> = () => {
   }, [isButtonClicked]);
 
   const toggleTheme = () => {
-    setIsDarkMode((prev) => !prev);
+    const newDarkModeState = !isDarkMode;
+    setIsDarkMode(newDarkModeState);
     document.documentElement.classList.toggle("dark");
   };
 
@@ -126,7 +135,7 @@ const Navigation: FC<NavigationProps> = () => {
                     {user.displayName ? user.displayName[0].toUpperCase() : user.email[0].toUpperCase()}
                   </div>
                 )}
-                <span className="text-sm font-medium">
+                <span className={`text-sm font-medium ${isARVRPage ? 'text-amber-900' : ''}`}>
                   {user.displayName || user.email.split('@')[0]}
                 </span>
               </div>
@@ -164,14 +173,20 @@ const Navigation: FC<NavigationProps> = () => {
     return (
       <>
         <Link href="/login">
-          <Button className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700">
+          <Button className={isARVRPage 
+            ? "bg-gradient-to-r from-amber-300 to-yellow-500 hover:from-amber-400 hover:to-yellow-600 text-amber-900 font-semibold border border-amber-300 shadow-lg hover:shadow-amber-200/50" 
+            : "bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700"
+          }>
             Login
           </Button>
         </Link>
         <Link href="/signup">
           <Button
             variant="outline"
-            className="text-purple-600 hover:text-purple-700 dark:text-purple-400 dark:hover:text-purple-300 border-purple-600 hover:border-purple-700 dark:border-purple-400 dark:hover:border-purple-300"
+            className={isARVRPage
+              ? "text-amber-800 hover:text-amber-900 border-amber-400 hover:border-amber-500 hover:bg-amber-100/30"
+              : "text-purple-600 hover:text-purple-700 dark:text-purple-400 dark:hover:text-purple-300 border-purple-600 hover:border-purple-700 dark:border-purple-400 dark:hover:border-purple-300"
+            }
           >
             Sign Up
           </Button>
@@ -212,17 +227,13 @@ const Navigation: FC<NavigationProps> = () => {
   const renderMenuItems = () => {
     return (
       <>
-       
-        <a
-          href="#how-it-works"
-          className="text-gray-600 hover:text-blue-600 dark:text-gray-300 dark:hover:text-blue-400 font-medium"
-        >
-          How it Works
-        </a>
+        <ARVRNavButton isARVRPage={isARVRPage} />
         
         <Link
           href="/communities"
-          className="flex items-center space-x-1 font-medium text-purple-600 hover:text-purple-700 dark:text-purple-400 dark:hover:text-purple-300"
+          className={`flex items-center space-x-1 font-medium ${isARVRPage
+            ? 'text-amber-800 hover:text-amber-900'
+            : 'text-purple-600 hover:text-purple-700 dark:text-purple-400 dark:hover:text-purple-300'}`}
         >
           <Users className="h-4 w-4" />
           <span>Communities</span>
@@ -248,13 +259,17 @@ const Navigation: FC<NavigationProps> = () => {
             onHoverStart={() => setIsStarAnimating(true)}
             onHoverEnd={() => !isButtonClicked && setIsStarAnimating(false)}
             onClick={handlePricingClick}
-            className="bg-gradient-to-r from-amber-400 to-yellow-500 hover:from-amber-500 hover:to-yellow-600 text-gray-900 font-medium px-4 py-2 rounded-lg shadow-md hover:shadow-lg transition-all flex items-center space-x-2 border border-amber-300 group-hover:border-amber-400 cursor-pointer"
+            className={`font-medium px-4 py-2 rounded-lg shadow-md hover:shadow-lg transition-all flex items-center space-x-2 cursor-pointer ${
+              isARVRPage 
+                ? "bg-gradient-to-r from-amber-300 to-yellow-400 hover:from-amber-400 hover:to-yellow-500 text-amber-900 border border-amber-300 shadow-amber-200/50"
+                : "bg-gradient-to-r from-amber-400 to-yellow-500 hover:from-amber-500 hover:to-yellow-600 text-gray-900 border border-amber-300"
+            }`}
           >
             <motion.div
               animate={getCurrentStarAnimation()}
               initial={starAnimation.initial}
             >
-              <Star className="h-4 w-4 text-white" />
+              <Star className={`h-4 w-4 ${isARVRPage ? "text-amber-900" : "text-white"}`} />
             </motion.div>
             <span>Pricing</span>
             <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold px-1.5 rounded-full">
@@ -262,26 +277,58 @@ const Navigation: FC<NavigationProps> = () => {
             </span>
           </motion.div>
         </div>
-        
-        
       </>
     );
   };
 
+  // Golden premium style for ARVR page
+  const navbarStyles = isARVRPage 
+    ? {
+        background: "linear-gradient(135deg, #f7e8c3 0%, #ffd700 50%, #edc967 100%)",
+        boxShadow: "0 4px 15px rgba(255, 215, 0, 0.3)",
+        borderBottom: "1px solid rgba(255, 215, 0, 0.5)"
+      }
+    : {};
+
   return (
-    <nav className="bg-white dark:bg-gray-800 shadow-md py-4 px-6 sticky top-0 z-50">
+    <nav 
+      className={`${isARVRPage ? 'bg-gradient-to-r from-amber-100 to-yellow-200 dark:from-amber-800 dark:to-yellow-900' : 'bg-white dark:bg-gray-800'} shadow-md py-4 px-6 sticky top-0 z-50`}
+      style={navbarStyles}
+    >
       <div className="max-w-7xl mx-auto flex justify-between items-center">
         <div className="flex items-center">
           <Link href="/" className="flex items-center">
             <div className="relative">
-              <Image
-                src="/QUIZITT-logo.png"
-                alt="Quizitt Logo"
-                width={160}
-                height={70}
-                style={{ objectFit: "contain" }}
-                priority
-              />
+              {isDarkMode ? (
+                <Image
+                  src="/QUIZZ-dark.png"
+                  alt="Quizitt Dark Logo"
+                  width={160}
+                  height={70}
+                  style={{ 
+                    objectFit: "contain",
+                    filter: isARVRPage ? "drop-shadow(0 0 3px rgba(255, 215, 0, 0.5))" : "none" 
+                  }}
+                  priority
+                />
+              ) : (
+                <Image
+                  src="/QUIZITT-logo.png"
+                  alt="Quizitt Logo"
+                  width={160}
+                  height={70}
+                  style={{ 
+                    objectFit: "contain",
+                    filter: isARVRPage ? "drop-shadow(0 0 3px rgba(255, 215, 0, 0.5))" : "none" 
+                  }}
+                  priority
+                />
+              )}
+              {isARVRPage && (
+                <div className="absolute -top-2 -right-2 bg-gradient-to-r from-amber-400 to-yellow-500 text-amber-900 text-xs font-bold px-2 py-0.5 rounded-full border border-amber-300 shadow-sm">
+                  AR/VR
+                </div>
+              )}
             </div>
           </Link>
         </div>
@@ -294,7 +341,9 @@ const Navigation: FC<NavigationProps> = () => {
               variant="ghost"
               size="sm"
               onClick={toggleTheme}
-              className="rounded-full h-10 w-10 p-0 flex items-center justify-center"
+              className={`rounded-full h-10 w-10 p-0 flex items-center justify-center ${
+                isARVRPage ? "text-amber-800 hover:text-amber-900 hover:bg-amber-100/30" : ""
+              }`}
             >
               {isDarkMode ? (
                 <svg
@@ -307,7 +356,7 @@ const Navigation: FC<NavigationProps> = () => {
                   strokeWidth="2"
                   strokeLinecap="round"
                   strokeLinejoin="round"
-                  className="text-yellow-400"
+                  className={isARVRPage ? "text-amber-800" : "text-yellow-400"}
                 >
                   <circle cx="12" cy="12" r="5" />
                   <line x1="12" y1="1" x2="12" y2="3" />
@@ -330,7 +379,7 @@ const Navigation: FC<NavigationProps> = () => {
                   strokeWidth="2"
                   strokeLinecap="round"
                   strokeLinejoin="round"
-                  className="text-indigo-600"
+                  className={isARVRPage ? "text-amber-800" : "text-indigo-600"}
                 >
                   <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
                 </svg>
@@ -347,9 +396,9 @@ const Navigation: FC<NavigationProps> = () => {
             className="p-2"
           >
             {isMenuOpen ? (
-              <X className="h-6 w-6 text-gray-800 dark:text-white" />
+              <X className={`h-6 w-6 ${isARVRPage ? "text-amber-900" : "text-gray-800 dark:text-white"}`} />
             ) : (
-              <Menu className="h-6 w-6 text-gray-800 dark:text-white" />
+              <Menu className={`h-6 w-6 ${isARVRPage ? "text-amber-900" : "text-gray-800 dark:text-white"}`} />
             )}
           </Button>
         </div>
@@ -360,20 +409,26 @@ const Navigation: FC<NavigationProps> = () => {
           initial={{ opacity: 0, height: 0 }}
           animate={{ opacity: 1, height: "auto" }}
           exit={{ opacity: 0, height: 0 }}
-          className="md:hidden mt-4 bg-white dark:bg-gray-800 py-2"
+          className={`md:hidden mt-4 py-2 ${isARVRPage ? "bg-amber-100 dark:bg-amber-900" : "bg-white dark:bg-gray-800"}`}
         >
           <div className="flex flex-col space-y-3 px-6">
           
             <a
               href="#how-it-works"
-              className="text-gray-600 hover:text-blue-600 dark:text-gray-300 dark:hover:text-blue-400 font-medium py-2"
+              className={`font-medium py-2 ${isARVRPage 
+                ? "text-amber-800 hover:text-amber-900" 
+                : "text-gray-600 hover:text-blue-600 dark:text-gray-300 dark:hover:text-blue-400"}`}
             >
               How it Works
             </a>
             
             <div className="py-2">
               <motion.button
-                className="bg-gradient-to-r from-amber-400 to-yellow-500 hover:from-amber-500 hover:to-yellow-600 text-gray-900 font-medium w-full py-2 rounded-lg shadow-md hover:shadow-lg transition-all flex items-center justify-center space-x-2 border border-amber-300 relative"
+                className={`font-medium w-full py-2 rounded-lg shadow-md hover:shadow-lg transition-all flex items-center justify-center space-x-2 relative ${
+                  isARVRPage 
+                    ? "bg-gradient-to-r from-amber-300 to-yellow-400 hover:from-amber-400 hover:to-yellow-500 text-amber-900 border border-amber-300 shadow-amber-200/50"
+                    : "bg-gradient-to-r from-amber-400 to-yellow-500 hover:from-amber-500 hover:to-yellow-600 text-gray-900 border border-amber-300"
+                }`}
                 whileHover={{ 
                   y: [0, -3, 0],
                   transition: { duration: 0.5, ease: "easeInOut" }
@@ -398,7 +453,7 @@ const Navigation: FC<NavigationProps> = () => {
                   animate={getCurrentStarAnimation()}
                   initial={starAnimation.initial}
                 >
-                  <Star className="h-4 w-4 text-white" />
+                  <Star className={`h-4 w-4 ${isARVRPage ? "text-amber-900" : "text-white"}`} />
                 </motion.div>
                 <span>Pricing</span>
                 <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold px-1.5 rounded-full">
@@ -409,7 +464,9 @@ const Navigation: FC<NavigationProps> = () => {
             
             <Link
               href="/communities"
-              className="flex items-center space-x-1 font-medium text-purple-600 hover:text-purple-700 dark:text-purple-400 dark:hover:text-purple-300 py-2"
+              className={`flex items-center space-x-1 font-medium py-2 ${isARVRPage
+                ? "text-amber-800 hover:text-amber-900"
+                : "text-purple-600 hover:text-purple-700 dark:text-purple-400 dark:hover:text-purple-300"}`}
             >
               <Users className="h-4 w-4" />
               <span>Communities</span>
@@ -431,41 +488,51 @@ const Navigation: FC<NavigationProps> = () => {
                         {user.displayName ? user.displayName[0].toUpperCase() : user.email[0].toUpperCase()}
                       </div>
                     )}
-                    <span className="text-sm font-medium">
+                    <span className={`text-sm font-medium ${isARVRPage ? 'text-amber-900' : ''}`}>
                       {user.displayName || user.email.split('@')[0]}
                     </span>
                   </div>
                   <Button 
                     onClick={() => router.push('/dashboard')}
-                    className="w-full"
+                    className={`w-full ${isARVRPage 
+                      ? "bg-amber-200 hover:bg-amber-300 text-amber-900" 
+                      : ""}`}
                   >
                     <User className="h-4 w-4 mr-2" />
                     Dashboard
                   </Button>
                   <Button 
                     onClick={() => router.push('/profile')}
-                    className="w-full"
+                    className={`w-full ${isARVRPage 
+                      ? "bg-amber-200 hover:bg-amber-300 text-amber-900" 
+                      : ""}`}
                   >
                     <Settings className="h-4 w-4 mr-2" />
                     Profile
                   </Button>
                   <Button 
                     onClick={() => router.push('/quizzes')}
-                    className="w-full"
+                    className={`w-full ${isARVRPage 
+                      ? "bg-amber-200 hover:bg-amber-300 text-amber-900" 
+                      : ""}`}
                   >
                     <Users className="h-4 w-4 mr-2" />
                     My Quizzes
                   </Button>
                   <Button 
                     onClick={() => router.push('/subscription')}
-                    className="w-full"
+                    className={`w-full ${isARVRPage 
+                      ? "bg-amber-200 hover:bg-amber-300 text-amber-900" 
+                      : ""}`}
                   >
                     <CreditCard className="h-4 w-4 mr-2" />
                     Subscription
                   </Button>
                   <Button 
                     onClick={handleLogout}
-                    className="w-full text-red-500 hover:text-red-600 border border-red-300 hover:border-red-400"
+                    className={`w-full ${isARVRPage 
+                      ? "text-red-600 hover:text-red-700 border border-red-300 hover:border-red-400 bg-amber-100 hover:bg-amber-200" 
+                      : "text-red-500 hover:text-red-600 border border-red-300 hover:border-red-400"}`}
                   >
                     <LogOut className="h-4 w-4 mr-2" />
                     Logout
@@ -474,14 +541,18 @@ const Navigation: FC<NavigationProps> = () => {
               ) : (
                 <>
                   <Link href="/login">
-                    <Button className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 w-full">
+                    <Button className={`w-full ${isARVRPage 
+                      ? "bg-gradient-to-r from-amber-300 to-yellow-500 hover:from-amber-400 hover:to-yellow-600 text-amber-900 font-semibold border border-amber-300 shadow-lg hover:shadow-amber-200/50" 
+                      : "bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700"}`}>
                       Login
                     </Button>
                   </Link>
                   <Link href="/signup">
                     <Button
                       variant="outline"
-                      className="text-purple-600 hover:text-purple-700 dark:text-purple-400 dark:hover:text-purple-300 border-purple-600 hover:border-purple-700 dark:border-purple-400 dark:hover:border-purple-300 w-full"
+                      className={`w-full ${isARVRPage
+                        ? "text-amber-800 hover:text-amber-900 border-amber-400 hover:border-amber-500 hover:bg-amber-100/30"
+                        : "text-purple-600 hover:text-purple-700 dark:text-purple-400 dark:hover:text-purple-300 border-purple-600 hover:border-purple-700 dark:border-purple-400 dark:hover:border-purple-300"}`}
                     >
                       Sign Up
                     </Button>

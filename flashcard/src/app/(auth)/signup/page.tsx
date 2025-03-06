@@ -20,6 +20,7 @@ import { auth, db } from "../../../../firebaseConfig";
 
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
@@ -33,6 +34,9 @@ import {
   Smartphone
 } from "lucide-react";
 
+// Add Auth Context import for global authentication state
+import { useAuth } from "@/app/contexts/AuthContext/auth-type"; // You'll need to create this context
+
 export default function SignUpPage() {
   const [step, setStep] = useState(1);
   const [email, setEmail] = useState("");
@@ -45,39 +49,58 @@ export default function SignUpPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [confirmationResult, setConfirmationResult] = useState<any>(null);
+  const [verificationId, setVerificationId] = useState<string>("");
 
   const router = useRouter();
   const googleProvider = new GoogleAuthProvider();
+  
+  // Get authentication context (you'll need to create this)
+  const { setUser } = useAuth();
 
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const recaptchaContainer = document.getElementById('recaptcha-container');
-      
-      if (recaptchaContainer) {
-        if ((window as any).recaptchaVerifier) {
-          (window as any).recaptchaVerifier.clear();
-        }
-  
-        const verifier = new RecaptchaVerifier(auth, recaptchaContainer, {
-          'size': 'invisible',
-          'callback': (response: any) => {
-            console.log('Recaptcha solved');
-          },
-          'error-callback': (error: any) => {
-            console.error('Recaptcha error', error);
-          }
-        });
-  
-        (window as any).recaptchaVerifier = verifier;
-      }
-    }
-  
+    // Set up recaptcha verifier when component mounts
+    setupRecaptcha();
+    
     return () => {
+      // Clean up recaptcha when component unmounts
       if ((window as any).recaptchaVerifier) {
         (window as any).recaptchaVerifier.clear();
       }
     };
   }, []);
+
+  const setupRecaptcha = () => {
+    if (typeof window !== 'undefined') {
+      const recaptchaContainer = document.getElementById('recaptcha-container');
+      
+      if (recaptchaContainer) {
+        // Clear existing recaptcha if any
+        if ((window as any).recaptchaVerifier) {
+          (window as any).recaptchaVerifier.clear();
+        }
+  
+        try {
+          // Create new recaptcha verifier
+          const verifier = new RecaptchaVerifier(auth, recaptchaContainer, {
+            'size': 'invisible',
+            'callback': (response: any) => {
+              console.log('Recaptcha solved');
+            },
+            'error-callback': (error: any) => {
+              console.error('Recaptcha error', error);
+              toast.error("Recaptcha Error", {
+                description: "Please refresh the page and try again"
+              });
+            }
+          });
+          
+          (window as any).recaptchaVerifier = verifier;
+        } catch (error) {
+          console.error("Error setting up recaptcha:", error);
+        }
+      }
+    }
+  };
 
   // Comprehensive validation functions
   const validateEmail = (email: string) => {
@@ -102,15 +125,26 @@ export default function SignUpPage() {
       await setDoc(userDocRef, {
         uid: user.uid,
         email: user.email,
-        phoneNumber: phoneNumber,
-        displayName: displayName || user.displayName || user.email.split('@')[0],
+        phoneNumber: phoneNumber || user.phoneNumber || null,
+        displayName: displayName || user.displayName || user.email?.split('@')[0] || "User",
         createdAt: serverTimestamp(),
         lastLogin: serverTimestamp(),
         quizzesTaken: 0,
         quizzesCreated: 0,
         profileCompleted: false,
-        authMethod: 'email-phone'
+        authMethod: phoneNumber ? 'email-phone' : 'email-only'
       }, { merge: true });
+      
+      // Update global auth state
+      setUser({
+        uid: user.uid,
+        email: user.email,
+        displayName: displayName || user.displayName || user.email?.split('@')[0] || "User",
+        phoneNumber: phoneNumber || user.phoneNumber || null,
+        profileCompleted: false
+      });
+      
+      return true;
     } catch (error) {
       console.error("Error creating user document:", error);
       throw error;
@@ -174,6 +208,7 @@ export default function SignUpPage() {
 
       // If any validation fails, stop here
       if (!isValid) {
+        setLoading(false);
         return;
       }
 
@@ -183,11 +218,37 @@ export default function SignUpPage() {
         toast.error("Account Already Exists", {
           description: "An account with this email already exists. Please log in or use a different email."
         });
+        setLoading(false);
         return;
       }
 
-      // If all validations pass, move to phone verification
-      setStep(2);
+      // Two options for signup flow:
+      // 1. With phone verification (current flow)
+      // 2. Direct signup without phone (as a fallback)
+      
+      try {
+        // First try the direct signup method
+        const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+        
+        // Send email verification
+        await sendEmailVerification(userCredential.user);
+        
+        // Create user document
+        await createUserDocument(userCredential.user);
+        
+        // Success toast
+        toast.success("Account Created!", {
+          description: "A verification email has been sent. Please check your inbox.",
+          duration: 5000
+        });
+        
+        // Redirect to dashboard or homepage
+        router.push('/');
+      } catch (emailError) {
+        console.error("Email signup failed, trying phone verification:", emailError);
+        // If direct email signup fails, move to phone verification
+        setStep(2);
+      }
 
     } catch (error: any) {
       console.error("First Step Submit Error:", error);
@@ -203,19 +264,33 @@ export default function SignUpPage() {
   const sendOTP = async () => {
     setLoading(true);
     try {
+      // Reset recaptcha to avoid errors
+      setupRecaptcha();
+      
       // Validate phone number
       if (!validatePhoneNumber(phoneNumber)) {
         toast.error("Invalid Phone Number", {
           description: "Please enter a valid 10-digit phone number"
         });
+        setLoading(false);
         return;
       }
 
       const phoneNumberWithCode = '+91' + phoneNumber; // Assuming Indian phone numbers
       const recaptchaVerifier = (window as any).recaptchaVerifier;
       
+      if (!recaptchaVerifier) {
+        toast.error("Recaptcha Error", {
+          description: "Please refresh the page and try again"
+        });
+        setLoading(false);
+        return;
+      }
+      
+      // Send OTP to phone number
       const result = await signInWithPhoneNumber(auth, phoneNumberWithCode, recaptchaVerifier);
       setConfirmationResult(result);
+      setVerificationId(result.verificationId);
       
       toast.success("OTP Sent", {
         description: "Verification code sent to your phone"
@@ -224,8 +299,51 @@ export default function SignUpPage() {
       setStep(3);
     } catch (error: any) {
       console.error("Phone Auth Error:", error);
-      toast.error("OTP Send Failed", {
-        description: error.message || "Unable to send OTP"
+      
+      if (error.code === 'auth/invalid-phone-number') {
+        toast.error("Invalid Phone Number", {
+          description: "Please check the phone number format"
+        });
+      } else if (error.code === 'auth/too-many-requests') {
+        toast.error("Too Many Attempts", {
+          description: "Too many failed attempts. Please try again later."
+        });
+      } else {
+        toast.error("OTP Send Failed", {
+          description: error.message || "Unable to send OTP. Try direct signup."
+        });
+        
+        // Fallback to direct signup
+        handleDirectSignup();
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDirectSignup = async () => {
+    setLoading(true);
+    try {
+      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+      
+      // Send email verification
+      await sendEmailVerification(userCredential.user);
+      
+      // Create user document
+      await createUserDocument(userCredential.user);
+      
+      // Success toast
+      toast.success("Account Created!", {
+        description: "A verification email has been sent. Please check your inbox.",
+        duration: 5000
+      });
+      
+      // Redirect to dashboard or homepage
+      router.push('/');
+    } catch (error: any) {
+      console.error("Direct Signup Error:", error);
+      toast.error("Signup Failed", {
+        description: error.message || "An error occurred during signup"
       });
     } finally {
       setLoading(false);
@@ -235,48 +353,103 @@ export default function SignUpPage() {
   const verifyOTP = async () => {
     setLoading(true);
     try {
-      if (!confirmationResult) {
-        throw new Error("No confirmation result");
-      }
-
       // Validate OTP
       if (!otp || otp.length !== 6) {
         toast.error("Invalid OTP", {
           description: "Please enter a 6-digit OTP"
         });
+        setLoading(false);
+        return;
+      }
+      
+      if (!confirmationResult && !verificationId) {
+        toast.error("Verification Error", {
+          description: "Session expired. Please try again."
+        });
+        setStep(2); // Go back to phone number step
+        setLoading(false);
         return;
       }
   
       // Verify phone number
-      const userCredential: UserCredential = await confirmationResult.confirm(otp);
+      let phoneUserCredential;
       
-      // Create user with email and password
-      const emailUserCredential = await createUserWithEmailAndPassword(
-        auth, 
-        email, 
-        password
-      );
+      try {
+        // Try to confirm with the confirmation result object
+        if (confirmationResult) {
+          phoneUserCredential = await confirmationResult.confirm(otp);
+        } else {
+          // Fallback to direct signup
+          throw new Error("No confirmation result");
+        }
+      } catch (otpError) {
+        console.error("OTP confirmation error:", otpError);
+        toast.error("OTP Verification Failed", {
+          description: "Invalid code or session expired. Trying direct signup..."
+        });
+        
+        // Fallback to direct signup
+        await handleDirectSignup();
+        return;
+      }
       
-      // Send email verification
-      await sendEmailVerification(emailUserCredential.user);
-      
-      // Create user document in Firestore
-      await createUserDocument(emailUserCredential.user);
-  
-      // Success toast and redirect
-      toast.success("Account Created!", {
-        description: "A verification email has been sent. Please check your inbox.",
-        duration: 5000
-      });
-  
-      // Redirect to login page
-      router.push('/login');
+      // If we get here, phone verification successful
+      try {
+        // Create user with email and password
+        const emailUserCredential = await createUserWithEmailAndPassword(
+          auth, 
+          email, 
+          password
+        );
+        
+        // Send email verification
+        await sendEmailVerification(emailUserCredential.user);
+        
+        // Create user document in Firestore
+        await createUserDocument(emailUserCredential.user);
+        
+        // Success toast and redirect
+        toast.success("Account Created!", {
+          description: "A verification email has been sent. Please check your inbox.",
+          duration: 5000
+        });
+        
+        // Redirect to homepage or dashboard
+        router.push('/');
+      } catch (emailSignupError) {
+        console.error("Email signup after phone verification failed:", emailSignupError);
+        
+        // If email signup fails but phone verification succeeded
+        if (phoneUserCredential) {
+          // Create user document with phone user credential
+          await createUserDocument(phoneUserCredential.user);
+          
+          toast.success("Account Created with Phone!", {
+            description: "You've been signed up with your phone number.",
+            duration: 5000
+          });
+          
+          // Redirect to homepage or dashboard
+          router.push('/');
+        } else {
+          throw emailSignupError;
+        }
+      }
 
     } catch (error: any) {
       console.error("OTP Verification Error:", error);
       
       // Handle specific error cases
-      if (error.code === 'auth/email-already-in-use') {
+      if (error.code === 'auth/invalid-verification-code') {
+        toast.error("Invalid Code", {
+          description: "The verification code you entered is invalid."
+        });
+      } else if (error.code === 'auth/code-expired') {
+        toast.error("Code Expired", {
+          description: "The verification code has expired. Please request a new one."
+        });
+        setStep(2); // Go back to phone step
+      } else if (error.code === 'auth/email-already-in-use') {
         toast.error("Email Already Exists", {
           description: "An account with this email already exists. Please log in or use a different email."
         });
@@ -291,7 +464,11 @@ export default function SignUpPage() {
   };
 
   const handleGoogleSignUp = async () => {
+    setLoading(true);
     try {
+      // Reset recaptcha to avoid errors
+      setupRecaptcha();
+      
       // Signin with Google popup
       const result = await signInWithPopup(auth, googleProvider);
       
@@ -328,12 +505,24 @@ export default function SignUpPage() {
             description: error.message || "An unexpected error occurred."
           });
       }
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-purple-50 to-blue-100 px-4 py-8">
       <div className="w-full max-w-md bg-white shadow-2xl rounded-2xl overflow-hidden">
+        <div className="flex justify-center mt-6">
+          <Image 
+            src="/QUIZITT-logo.png" 
+            alt="QUIZITT Logo" 
+            width={180} 
+            height={60} 
+            priority
+          />
+        </div>
+        
         <div className="p-8">
           <h2 className="text-center text-3xl font-extrabold text-gray-900 mb-6">
             {step === 1 ? "Create Your Account" : 
@@ -355,6 +544,8 @@ export default function SignUpPage() {
                   value={displayName}
                   onChange={(e) => setDisplayName(e.target.value)}
                   className="pl-10 w-full"
+                  required
+                  minLength={2}
                 />
               </div>
 
@@ -369,6 +560,7 @@ export default function SignUpPage() {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   className="pl-10 w-full"
+                  required
                 />
               </div>
 
@@ -383,6 +575,8 @@ export default function SignUpPage() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   className="pl-10 pr-10 w-full"
+                  required
+                  minLength={8}
                 />
                 <div 
                   className="absolute inset-y-0 right-0 pr-3 flex items-center cursor-pointer"
@@ -407,6 +601,7 @@ export default function SignUpPage() {
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
                   className="pl-10 pr-10 w-full"
+                  required
                 />
                 <div 
                   className="absolute inset-y-0 right-0 pr-3 flex items-center cursor-pointer"
@@ -426,7 +621,7 @@ export default function SignUpPage() {
                 className="w-full bg-gradient-to-r from-purple-600 to-blue-500 hover:from-purple-700 hover:to-blue-600"
                 disabled={loading}
               >
-                {loading ? "Processing..." : "Next"}
+                {loading ? "Processing..." : "Sign Up"}
               </Button>
             </form>
           )}
@@ -434,6 +629,21 @@ export default function SignUpPage() {
           {/* Step 2: Phone Number */}
           {step === 2 && (
             <div className="space-y-4">
+              <div className="text-center mb-4">
+                <p className="text-sm text-gray-600">
+                  Phone verification improves account security.
+                </p>
+                <p className="text-xs text-gray-500 mt-1">
+                  Skip this step? <button
+                    type="button"
+                    onClick={handleDirectSignup}
+                    className="text-blue-600 hover:text-blue-800 hover:underline"
+                  >
+                    Continue with email only
+                  </button>
+                </p>
+              </div>
+            
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                   <Smartphone className="h-5 w-5 text-gray-400" />
@@ -464,7 +674,7 @@ export default function SignUpPage() {
 
               <div 
                 id="recaptcha-container" 
-                className="h-0 overflow-hidden"
+                className="flex justify-center mt-2"
               ></div>
             </div>
           )}
@@ -472,6 +682,27 @@ export default function SignUpPage() {
           {/* Step 3: OTP Verification */}
           {step === 3 && (
             <div className="space-y-4">
+              <div className="text-center mb-4">
+                <p className="text-sm text-gray-600">
+                  Enter the 6-digit code sent to +91 {phoneNumber}
+                </p>
+                <p className="text-xs text-gray-500 mt-1">
+                  Didn't receive code? <button
+                    type="button"
+                    onClick={() => setStep(2)}
+                    className="text-blue-600 hover:text-blue-800 hover:underline"
+                  >
+                    Try again
+                  </button> or <button
+                    type="button"
+                    onClick={handleDirectSignup}
+                    className="text-blue-600 hover:text-blue-800 hover:underline"
+                  >
+                    skip verification
+                  </button>
+                </p>
+              </div>
+            
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                   <Key className="h-5 w-5 text-gray-400" />
@@ -498,16 +729,6 @@ export default function SignUpPage() {
               >
                 {loading ? "Verifying..." : "Verify OTP"}
               </Button>
-
-              <div className="text-center">
-                <button 
-                  type="button"
-                  onClick={() => setStep(2)}
-                  className="text-sm text-blue-500 hover:text-blue-700 hover:underline"
-                >
-                  Resend OTP
-                </button>
-              </div>
             </div>
           )}
 
@@ -526,6 +747,7 @@ export default function SignUpPage() {
                 onClick={handleGoogleSignUp}
                 variant="outline" 
                 className="w-full flex items-center justify-center space-x-2 border-gray-300 hover:bg-gray-50"
+                disabled={loading}
               >
                 <svg 
                   xmlns="http://www.w3.org/2000/svg" 
@@ -560,4 +782,3 @@ export default function SignUpPage() {
     </div>
   );
 }
-

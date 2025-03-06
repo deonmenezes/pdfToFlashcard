@@ -1,9 +1,158 @@
-import React from 'react';
+'use client'
+import React, { useEffect, useRef } from 'react';
 import Image from 'next/image';
 
 const ARVRComingSoon: React.FC = () => {
+  const headingRef = useRef<HTMLHeadingElement>(null);
+  const featuresRef = useRef<HTMLHeadingElement>(null);
+
+  useEffect(() => {
+    // Animate text on page load
+    const animateHeading = () => {
+      const headingElement = headingRef.current;
+      const featuresElement = featuresRef.current;
+      
+      if (headingElement) {
+        headingElement.classList.add('animate-text-reveal');
+      }
+      
+      if (featuresElement) {
+        featuresElement.classList.add('animate-text-reveal');
+      }
+    };
+    
+    // Animate on scroll
+    const handleScroll = () => {
+      const elements = document.querySelectorAll('.animate-on-scroll');
+      
+      elements.forEach(element => {
+        const rect = element.getBoundingClientRect();
+        const isVisible = rect.top < window.innerHeight - 100;
+        
+        if (isVisible) {
+          element.classList.add('animate-text-reveal');
+        }
+      });
+    };
+    
+    // Initial animation
+    setTimeout(animateHeading, 300);
+    
+    // Set up scroll listener
+    window.addEventListener('scroll', handleScroll);
+    
+    // Clean up
+    return () => {
+      window.removeEventListener('scroll', handleScroll);
+    };
+  }, []);
+
   return (
     <div className="bg-black text-white min-h-screen">
+      {/* Add keyframe animations to style section */}
+      <style jsx global>{`
+        @keyframes textReveal {
+          0% {
+            opacity: 0;
+            transform: translateX(-20px);
+          }
+          100% {
+            opacity: 1;
+            transform: translateX(0);
+          }
+        }
+        
+        @keyframes pulseFade {
+          0% {
+            opacity: 1;
+          }
+          50% {
+            opacity: 0.7;
+          }
+          100% {
+            opacity: 1;
+          }
+        }
+        
+        @keyframes shimmer {
+          0% {
+            background-position: -200% 0;
+          }
+          100% {
+            background-position: 200% 0;
+          }
+        }
+        
+        .animate-text-reveal {
+          animation: textReveal 1s ease-out forwards;
+        }
+        
+        .pulse-fade {
+          animation: pulseFade 3s ease-in-out infinite;
+        }
+        
+        .shimmer-effect {
+          background: linear-gradient(90deg, 
+            rgba(255,215,0,0.8) 0%, 
+            rgba(255,215,0,1) 25%, 
+            rgba(255,215,0,0.8) 50%, 
+            rgba(255,215,0,0.6) 75%, 
+            rgba(255,215,0,0.8) 100%);
+          background-size: 200% 100%;
+          background-clip: text;
+          -webkit-background-clip: text;
+          animation: shimmer 6s linear infinite;
+        }
+        
+        .animate-delay-100 { animation-delay: 100ms; }
+        .animate-delay-200 { animation-delay: 200ms; }
+        .animate-delay-300 { animation-delay: 300ms; }
+        .animate-delay-400 { animation-delay: 400ms; }
+        
+        .feature-card:nth-child(1) { animation-delay: 100ms; }
+        .feature-card:nth-child(2) { animation-delay: 300ms; }
+        .feature-card:nth-child(3) { animation-delay: 500ms; }
+        
+        .animate-on-scroll {
+          opacity: 0;
+          transform: translateX(-20px);
+          transition: opacity 1s ease-out, transform 1s ease-out;
+        }
+        
+        .animate-on-scroll.animate-text-reveal {
+          opacity: 1;
+          transform: translateX(0);
+        }
+        
+        .waitlist-button {
+          position: relative;
+          overflow: hidden;
+        }
+        
+        .waitlist-button:after {
+          content: '';
+          position: absolute;
+          top: 0;
+          left: -100%;
+          width: 100%;
+          height: 100%;
+          background: linear-gradient(90deg, 
+            rgba(255,255,255,0) 0%, 
+            rgba(255,255,255,0.2) 50%, 
+            rgba(255,255,255,0) 100%);
+          animation: buttonShimmer 3s infinite;
+        }
+        
+        @keyframes buttonShimmer {
+          0% {
+            left: -100%;
+          }
+          100% {
+            left: 100%;
+          }
+        }
+      `}</style>
+
       {/* Hero Section */}
       <section className="py-20 relative overflow-hidden">
         {/* Background Design Elements */}
@@ -16,21 +165,21 @@ const ARVRComingSoon: React.FC = () => {
         <div className="container mx-auto px-6 relative z-10">
           <div className="flex flex-col md:flex-row items-center justify-between gap-12">
             <div className="md:w-1/2 space-y-6">
-              <div className="inline-block px-4 py-2 bg-black border-2 border-gold-500 rounded-full text-gold-400 font-bold text-lg mb-4">
+              <div className="inline-block px-4 py-2 bg-black border-2 border-gold-500 rounded-full text-gold-400 font-bold text-lg mb-4 opacity-0 animate-text-reveal">
                 Coming Soon
               </div>
-              <h1 className="text-5xl md:text-7xl font-bold leading-tight">
-                <span className="text-white">Immersive </span>
-                <span className="bg-clip-text text-transparent bg-gradient-to-r from-gold-400 to-amber-300 font-extrabold">Learning</span>
-                <span className="text-white"> With </span>
-                <span className="bg-clip-text text-transparent bg-gradient-to-r from-blue-500 to-purple-500 font-extrabold">AR/VR</span>
+              <h1 ref={headingRef} className="text-5xl md:text-7xl font-bold leading-tight opacity-0">
+                <span className="text-white inline-block animate-text-reveal">Immersive </span>
+                <span className="bg-clip-text text-transparent bg-gradient-to-r from-gold-400 to-amber-300 font-extrabold inline-block animate-text-reveal animate-delay-100 pulse-fade shimmer-effect">Learning</span>
+                <span className="text-white inline-block animate-text-reveal animate-delay-200"> With  </span>
+                <span className="bg-clip-text text-transparent bg-gradient-to-r from-gold-400 to-amber-300 font-extrabold inline-block animate-text-reveal animate-delay-300 p-3"> AR/VR</span>
               </h1>
-              <p className="text-gray-100 text-xl md:text-2xl font-medium">
+              <p className="text-gray-100 text-xl md:text-2xl font-medium opacity-0 animate-text-reveal animate-delay-400">
                 Transform your educational experience with our upcoming Augmented and Virtual Reality features. Dive into interactive 3D quizzes and immersive flashcards.
               </p>
-              <div className="flex flex-col sm:flex-row gap-4 pt-4">
+              <div className="flex flex-col sm:flex-row gap-4 pt-4 opacity-0 animate-text-reveal animate-delay-400">
                 <button className="px-8 py-4 rounded-md bg-gradient-to-r from-gold-600 to-amber-500 text-black font-bold hover:from-gold-500 hover:to-amber-400 transition-all text-lg">
-                  Join Waitlist
+                  Donate to our Cause
                 </button>
                 <button className="px-8 py-4 rounded-md border-2 border-gray-700 text-white hover:bg-gray-800 transition-all font-bold text-lg">
                   Learn More
@@ -38,7 +187,7 @@ const ARVRComingSoon: React.FC = () => {
               </div>
             </div>
 
-            <div className="md:w-1/2 relative">
+            <div className="md:w-1/2 relative opacity-0 animate-text-reveal animate-delay-300">
               <div className="relative w-full h-96">
                 {/* VR Headset Mockup */}
                 <div className="absolute inset-0 bg-gradient-to-tr from-blue-900/50 to-purple-900/50 rounded-xl backdrop-blur-sm flex items-center justify-center">
@@ -55,7 +204,7 @@ const ARVRComingSoon: React.FC = () => {
                       </div>
                     </div>
                     <div className="absolute -top-4 -left-4 w-full h-full rounded-xl border-2 border-gold-500/50 transform rotate-3"></div>
-                    <div className="absolute -bottom-4 -right-4 w-full h-full rounded-xl border-2 border-blue-500/50 transform -rotate-3"></div>
+                    <div className="absolute -bottom-4 -right-4 w-full h-full rounded-xl border-2 border-gold-500/50 transform -rotate-3"></div>
                   </div>
                 </div>
               </div>
@@ -68,16 +217,16 @@ const ARVRComingSoon: React.FC = () => {
       <section className="py-16 bg-gradient-to-b from-black to-gray-900">
         <div className="container mx-auto px-6">
           <div className="text-center mb-16">
-            <h2 className="text-4xl md:text-5xl font-bold mb-4">
-              <span className="bg-clip-text text-transparent bg-gradient-to-r from-gold-400 to-amber-300 font-extrabold">Experience Education</span>
-              <span className="text-white"> Like Never Before</span>
+            <h2 ref={featuresRef} className="text-4xl md:text-5xl font-bold mb-4 opacity-0">
+              <span className="bg-clip-text text-transparent bg-gradient-to-r from-gold-400 to-amber-300 font-extrabold inline-block">Experience Education</span>
+              <span className="text-white inline-block"> Like Never Before</span>
             </h2>
-            <p className="text-gray-100 max-w-2xl mx-auto text-xl">Our AR/VR features will redefine how you interact with educational content.</p>
+            <p className="text-gray-100 max-w-2xl mx-auto text-xl opacity-0 animate-text-reveal animate-delay-100">Our AR/VR features will redefine how you interact with educational content.</p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             {/* Feature 1 */}
-            <div className="bg-black/50 border-2 border-gray-800 rounded-xl p-8 hover:border-gold-500/80 transition-all duration-300 group">
+            <div className="bg-black/50 border-2 border-gray-800 rounded-xl p-8 hover:border-gold-500/80 transition-all duration-300 group feature-card opacity-0 animate-on-scroll">
               <div className="w-16 h-16 mb-6 rounded-lg bg-blue-900/40 flex items-center justify-center group-hover:bg-blue-900/70 transition-all">
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
@@ -88,7 +237,7 @@ const ARVRComingSoon: React.FC = () => {
             </div>
 
             {/* Feature 2 */}
-            <div className="bg-black/50 border-2 border-gray-800 rounded-xl p-8 hover:border-gold-500/80 transition-all duration-300 group">
+            <div className="bg-black/50 border-2 border-gray-800 rounded-xl p-8 hover:border-gold-500/80 transition-all duration-300 group feature-card opacity-0 animate-on-scroll">
               <div className="w-16 h-16 mb-6 rounded-lg bg-purple-900/40 flex items-center justify-center group-hover:bg-purple-900/70 transition-all">
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-purple-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
@@ -99,7 +248,7 @@ const ARVRComingSoon: React.FC = () => {
             </div>
 
             {/* Feature 3 */}
-            <div className="bg-black/50 border-2 border-gray-800 rounded-xl p-8 hover:border-gold-500/80 transition-all duration-300 group">
+            <div className="bg-black/50 border-2 border-gray-800 rounded-xl p-8 hover:border-gold-500/80 transition-all duration-300 group feature-card opacity-0 animate-on-scroll">
               <div className="w-16 h-16 mb-6 rounded-lg bg-gold-900/40 flex items-center justify-center group-hover:bg-gold-900/70 transition-all">
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-gold-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
@@ -119,7 +268,7 @@ const ARVRComingSoon: React.FC = () => {
         </div>
         
         <div className="container mx-auto px-6 relative z-10">
-          <div className="max-w-3xl mx-auto bg-gradient-to-r from-gray-900 to-black border-2 border-gray-800 rounded-2xl p-8 md:p-12 shadow-2xl">
+          <div className="max-w-3xl mx-auto bg-gradient-to-r from-gray-900 to-black border-2 border-gray-800 rounded-2xl p-8 md:p-12 shadow-2xl opacity-0 animate-on-scroll">
             <div className="text-center">
               <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-gold-900/30 mb-6 border border-gold-500/50">
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 text-gold-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -135,7 +284,7 @@ const ARVRComingSoon: React.FC = () => {
                   placeholder="Enter your email" 
                   className="px-4 py-3 rounded-md bg-black border-2 border-gray-700 text-white focus:outline-none focus:border-gold-500 flex-grow text-lg"
                 />
-                <button className="px-6 py-3 rounded-md bg-gradient-to-r from-gold-600 to-amber-500 text-black font-bold hover:from-gold-500 hover:to-amber-400 transition-all whitespace-nowrap text-lg">
+                <button className="px-6 py-3 rounded-md bg-gradient-to-r from-gold-600 to-amber-500 text-black font-bold hover:from-gold-500 hover:to-amber-400 transition-all whitespace-nowrap text-lg waitlist-button pulse-fade">
                   Join Waitlist
                 </button>
               </div>
@@ -144,8 +293,6 @@ const ARVRComingSoon: React.FC = () => {
           </div>
         </div>
       </section>
-
-      
     </div>
   );
 };

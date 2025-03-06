@@ -1,14 +1,19 @@
-import { BookOpen } from "lucide-react";
 import Link from "next/link";
+import Image from "next/image";
 
 const Footer = () => (
   <footer className="bg-gray-900 text-gray-300 py-12 px-4 sm:px-6 lg:px-8">
     <div className="max-w-7xl mx-auto">
       <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
         <div>
-          <div className="flex items-center space-x-2 mb-6">
-            <BookOpen className="h-8 w-8 text-blue-400" />
-            <span className="font-bold text-xl text-white">quizitt</span>
+          <div className="mb-6">
+            <Image 
+              src="/QUIZITT-logo.png" 
+              alt="Quizitt Logo" 
+              width={150} 
+              height={50} 
+              className="h-auto"
+            />
           </div>
           <p className="text-gray-400 mb-6">
             Transforming the way you study with AI-powered learning tools that adapt to your needs.

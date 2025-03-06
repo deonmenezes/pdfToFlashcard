@@ -10,6 +10,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import Link from "next/link";
 
 const SubscriptionPage: FC = () => {
   const [billingCycle, setBillingCycle] = useState<'monthly' | 'yearly'>('monthly');
@@ -128,10 +129,12 @@ const SubscriptionPage: FC = () => {
               </p>
               
               <div className="mt-6">
+              <Link href="/subscriptions/checkout" className="w-full">
                 <Button className="w-full bg-gradient-to-r from-purple-500 to-indigo-600 hover:from-purple-600 hover:to-indigo-700">
                   Start Premium
                 </Button>
-              </div>
+              </Link>
+            </div>
             </div>
             
             <div className="px-6 pt-6 pb-8">

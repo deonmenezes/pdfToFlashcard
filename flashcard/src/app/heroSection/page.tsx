@@ -1,9 +1,9 @@
 'use client'
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import QuizPage from '../quizPage/quizPage';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Switch } from "@/components/ui/switch"; // Import Switch component
+import { Switch } from "@/components/ui/switch"; 
 import { MCQ } from '../components/MCQS/mcq-types';
 import { MCQGenerator } from '../components/MCQS/mcq-utils';
 import { Flashcard } from '../components/flashcards/flashcard-types';
@@ -12,31 +12,35 @@ import { TrueFalseQuestion } from '../components/trueOrFalse/true-false-type';
 import { TrueFalseQuestionGenerator } from '../components/trueOrFalse/true-false-utils';
 import { MatchingQuestion } from '../components/matching-questions/matching-question-type';
 import { MatchingQuestionGenerator } from '../components/matching-questions/matching-question-utils';
+import { useRouter } from 'next/navigation';
+import { auth } from '../../../firebaseConfig';
+import { onAuthStateChanged } from 'firebase/auth';
+import { toast } from 'sonner';
+import Link from 'next/link';
 
 interface GeminiRequest {
   fileContent: string;
   fileName: string;
   fileType: string;
-  customPrompt?: string; // Add optional custom prompt
+  customPrompt?: string;
 }
 
-// Define API response type
 interface GeminiResponse {
   flashcards: Flashcard[];
   mcqs: MCQ[];
   matchingQuestions: MatchingQuestion[];
-  trueFalseQuestions: TrueFalseQuestion[];  // Now using the imported TrueFalseQuestion type
+  trueFalseQuestions: TrueFalseQuestion[];
 }
 
-// Define supported file types
 const SUPPORTED_FILE_TYPES = [
-  '.pdf', '.ppt', '.pptx',       // PowerPoint
-  '.doc', '.docx',               // Word
-  '.txt', '.rtf',                // Text files
-  '.xls', '.xlsx', '.csv'        // Excel
+  '.pdf', '.ppt', '.pptx',
+  '.doc', '.docx',
+  '.txt', '.rtf',
+  '.xls', '.xlsx', '.csv'
 ];
 
 const HeroSection: React.FC = () => {
+  const router = useRouter();
   const [file, setFile] = useState<File | null>(null);
   const [flashcards, setFlashcards] = useState<Flashcard[]>([]);
   const [mcqs, setMcqs] = useState<MCQ[]>([]);
@@ -49,21 +53,61 @@ const HeroSection: React.FC = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [processingStatus, setProcessingStatus] = useState<string>('idle');
   const [extractedTextPreview, setExtractedTextPreview] = useState<string | null>(null);
-  const isProcessing = processingStatus !== 'idle';
-  // Add these state variables to track multiple file processing
   const [totalFiles, setTotalFiles] = useState<number>(0);
   const [processedFiles, setProcessedFiles] = useState<number>(0);
   const [processingFilename, setProcessingFilename] = useState<string>('');
-  // New state variables for custom prompt
   const [useCustomPrompt, setUseCustomPrompt] = useState<boolean>(false);
   const [customPrompt, setCustomPrompt] = useState<string>('');
-  // Fallback demo data (in case API fails)
+  const [pendingFiles, setPendingFiles] = useState<FileList | null>(null);
+  // Still track auth state but don't display it upfront
+  const [isLoggedIn, setIsLoggedIn] = useState<boolean>(false);
+  const [isAuthLoading, setIsAuthLoading] = useState<boolean>(true);
+  const [user, setUser] = useState<any>(null);
+  
+  const isProcessing = processingStatus !== 'idle';
+  
+  // Fallback demo data
   const demoFlashcards: Flashcard[] = FlashcardGenerator.getDemoFlashcards();
   const demoMCQs: MCQ[] = MCQGenerator.getDemoMCQs();
   const demoMatchingQuestions: MatchingQuestion[] = MatchingQuestionGenerator.getDemoMatchingQuestions();
   const demoTrueFalseQuestions: TrueFalseQuestion[] = TrueFalseQuestionGenerator.getDemoTrueFalseQuestions();
 
+  // Check authentication state on component mount
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+      setIsAuthLoading(false);
+      setUser(currentUser);
+      setIsLoggedIn(!!currentUser);
+      
+      // Process pending files if user is now logged in
+      if (currentUser && pendingFiles) {
+        processMultipleFiles(pendingFiles);
+        setPendingFiles(null); // Clear pending files after processing
+      }
+    });
+  
+    // Cleanup subscription on unmount
+    return () => unsubscribe();
+  }, [pendingFiles]); // Add pendingFiles as dependency
 
+  // Redirect to login only when an upload is attempted
+  const handleAuthRequiredAction = () => {
+    if (!isLoggedIn && !isAuthLoading) {
+      // If file is selected, store file info in localStorage
+      if (file) {
+        sessionStorage.setItem('pendingFileName', file.name);
+        sessionStorage.setItem('pendingFileSize', file.size.toString());
+        sessionStorage.setItem('pendingFileType', file.type);
+      }
+      
+      toast.info("Just one more step to create your quiz!", {
+        description: "Please log in to continue processing your document"
+      });
+      router.push('/login');
+      return false;
+    }
+    return true;
+  };
   const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     setIsDragging(true);
@@ -78,14 +122,31 @@ const HeroSection: React.FC = () => {
     setIsDragging(false);
     
     if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-      // Process multiple files from drag and drop
+      // Set the file first to show user their upload was received
+      setFile(e.dataTransfer.files[0]);
+      
+      // Store pending files for processing after login if needed
+      setPendingFiles(e.dataTransfer.files);
+      
+      // Then check auth and redirect if needed
+      if (!handleAuthRequiredAction()) return;
+      
+      // Only continue with processing if auth passed
       processMultipleFiles(e.dataTransfer.files);
     }
   };
-
   const handleFileInput = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
-      // Process multiple files
+      // Set the file first to show user their upload was received
+      setFile(e.target.files[0]);
+      
+      // Store pending files for processing after login if needed
+      setPendingFiles(e.target.files);
+      
+      // Then check auth and redirect if needed
+      if (!handleAuthRequiredAction()) return;
+      
+      // Only continue with processing if auth passed
       processMultipleFiles(e.target.files);
     }
   };
@@ -166,8 +227,6 @@ const HeroSection: React.FC = () => {
     const fileName = file.name.toLowerCase();
     return SUPPORTED_FILE_TYPES.some(ext => fileName.endsWith(ext));
   };
-
-  
 
   const readFileContent = (file: File): Promise<string> => {
     return new Promise((resolve, reject) => {
@@ -334,6 +393,12 @@ const HeroSection: React.FC = () => {
       };
     }
   };
+
+  // Handle button click for "Try it Now" - don't check auth initially
+  const handleTryItNowClick = () => {
+    fileInputRef.current?.click();
+  };
+
   return (
     <AnimatePresence mode="sync">
       {!showQuizPage ? (
@@ -358,11 +423,12 @@ const HeroSection: React.FC = () => {
                   <p className="text-xl text-gray-600 dark:text-gray-300 mb-8">
                     Upload any document and our AI will instantly generate customized flashcards and quiz questions to enhance your learning experience.
                   </p>
+
                   {!file && (
                     <div className="flex flex-col sm:flex-row space-y-4 sm:space-y-0 sm:space-x-4">
                       <Button 
                         className="text-lg py-6 px-8 bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700"
-                        onClick={() => fileInputRef.current?.click()}
+                        onClick={handleTryItNowClick}
                       >
                         Try it Now
                       </Button>
@@ -395,28 +461,30 @@ const HeroSection: React.FC = () => {
                   
                   {!file ? (
                     <div>
-                      {/* Custom Prompt Toggle */}
-                      <div className="mb-6 flex items-center justify-between">
-                        <div className="flex items-center space-x-2">
-                          <Switch 
-                            checked={useCustomPrompt} 
-                            onCheckedChange={setUseCustomPrompt} 
-                            id="custom-prompt-toggle" 
-                          />
-                          <label 
-                            htmlFor="custom-prompt-toggle" 
-                            className="text-sm font-medium cursor-pointer text-gray-700 dark:text-gray-300"
-                          >
-                            Use Custom Prompt
-                          </label>
+                      {/* Custom Prompt Toggle - Only show if already logged in */}
+                      {isLoggedIn && (
+                        <div className="mb-6 flex items-center justify-between">
+                          <div className="flex items-center space-x-2">
+                            <Switch 
+                              checked={useCustomPrompt} 
+                              onCheckedChange={setUseCustomPrompt} 
+                              id="custom-prompt-toggle" 
+                            />
+                            <label 
+                              htmlFor="custom-prompt-toggle" 
+                              className="text-sm font-medium cursor-pointer text-gray-700 dark:text-gray-300"
+                            >
+                              Use Custom Prompt
+                            </label>
+                          </div>
+                          <div className="text-xs text-gray-500 dark:text-gray-400">
+                            Customize how questions are generated
+                          </div>
                         </div>
-                        <div className="text-xs text-gray-500 dark:text-gray-400">
-                          Customize how questions are generated
-                        </div>
-                      </div>
+                      )}
                       
-                      {/* Custom Prompt Input - only show when toggle is on */}
-                      {useCustomPrompt && (
+                      {/* Custom Prompt Input - only show when toggle is on and user is logged in */}
+                      {useCustomPrompt && isLoggedIn && (
                         <motion.div 
                           initial={{ opacity: 0, height: 0 }}
                           animate={{ opacity: 1, height: 'auto' }}
@@ -482,7 +550,7 @@ const HeroSection: React.FC = () => {
                           <p className="text-red-500 text-sm mb-2">{apiError}</p>
                         )}
                         <Button 
-                          onClick={() => fileInputRef.current?.click()} 
+                          onClick={handleTryItNowClick} 
                           className="mt-2 bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-md"
                         >
                           Choose Files
@@ -545,29 +613,29 @@ const HeroSection: React.FC = () => {
         </motion.div>
       ) : (
         <motion.div
-        key="quizPage"
-        initial={{ opacity: 0, x: 20 }}
-        animate={{ opacity: 1, x: 0 }}
-        transition={{ duration: 0.3 }}
-        className="min-h-screen"
-      >
-        <QuizPage 
-        file={file}  // Change from fileName to file
-        flashcards={flashcards} 
-        mcqs={mcqs} 
-        matchingQuestions={matchingQuestions} 
-        trueFalseQuestions={trueFalseQuestions}
-        onBackToUpload={() => {  // Change from onBack to onBackToUpload
-          setShowQuizPage(false);
-          setFile(null);
-          setProcessingStatus('idle');
-          setExtractedTextPreview(null);
-        }}
-      />
-      </motion.div>
-    )}
-  </AnimatePresence>
-);
+          key="quizPage"
+          initial={{ opacity: 0, x: 20 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ duration: 0.3 }}
+          className="min-h-screen"
+        >
+          <QuizPage 
+            file={file}
+            flashcards={flashcards} 
+            mcqs={mcqs} 
+            matchingQuestions={matchingQuestions} 
+            trueFalseQuestions={trueFalseQuestions}
+            onBackToUpload={() => {
+              setShowQuizPage(false);
+              setFile(null);
+              setProcessingStatus('idle');
+              setExtractedTextPreview(null);
+            }}
+          />
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
 };
 
 export default HeroSection;

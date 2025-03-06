@@ -24,7 +24,7 @@ export default function FeaturesSection() {
             },
             {
               icon: <RefreshCw className="h-12 w-12 text-purple-500" />,
-              title: "Interactive Flashcards",
+              title: "Interactive Quizes",
               description: "Study with beautifully designed flashcards that help reinforce your knowledge through active recall."
             },
             {
