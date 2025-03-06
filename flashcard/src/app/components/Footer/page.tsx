@@ -1,4 +1,5 @@
 import { BookOpen } from "lucide-react";
+import Link from "next/link";
 
 const Footer = () => (
   <footer className="bg-gray-900 text-gray-300 py-12 px-4 sm:px-6 lg:px-8">
@@ -34,30 +35,30 @@ const Footer = () => (
         <div>
           <h3 className="text-lg font-semibold text-white mb-4">Product</h3>
           <ul className="space-y-2">
-            <li><a href="#" className="text-gray-400 hover:text-white">Features</a></li>
-            <li><a href="#" className="text-gray-400 hover:text-white">Pricing</a></li>
-            <li><a href="#" className="text-gray-400 hover:text-white">Use Cases</a></li>
-            <li><a href="#" className="text-gray-400 hover:text-white">FAQ</a></li>
+            <li><Link href="/#features" className="text-gray-400 hover:text-white">Features</Link></li>
+            <li><Link href="/subscriptions" className="text-gray-400 hover:text-white">Pricing</Link></li>
+            <li><Link href="/use-cases" className="text-gray-400 hover:text-white">Use Cases</Link></li>
+            <li><Link href="/subscriptions#faq" className="text-gray-400 hover:text-white">FAQ</Link></li>
           </ul>
         </div>
         
         <div>
           <h3 className="text-lg font-semibold text-white mb-4">Resources</h3>
           <ul className="space-y-2">
-            <li><a href="#" className="text-gray-400 hover:text-white">Blog</a></li>
-            <li><a href="#" className="text-gray-400 hover:text-white">Help Center</a></li>
-            <li><a href="#" className="text-gray-400 hover:text-white">Community</a></li>
-            <li><a href="#" className="text-gray-400 hover:text-white">API Documentation</a></li>
+            <li><Link href="/blog" className="text-gray-400 hover:text-white">Blog</Link></li>
+            <li><Link href="/help-center" className="text-gray-400 hover:text-white">Help Center</Link></li>
+            <li><Link href="/communities" className="text-gray-400 hover:text-white">Community</Link></li>
+            <li><Link href="/api-docs" className="text-gray-400 hover:text-white">API Documentation</Link></li>
           </ul>
         </div>
         
         <div>
           <h3 className="text-lg font-semibold text-white mb-4">Company</h3>
           <ul className="space-y-2">
-            <li><a href="#" className="text-gray-400 hover:text-white">About Us</a></li>
-            <li><a href="#" className="text-gray-400 hover:text-white">Careers</a></li>
-            <li><a href="#" className="text-gray-400 hover:text-white">Contact</a></li>
-            <li><a href="#" className="text-gray-400 hover:text-white">Privacy Policy</a></li>
+            <li><Link href="/about" className="text-gray-400 hover:text-white">About Us</Link></li>
+            <li><Link href="/careers" className="text-gray-400 hover:text-white">Careers</Link></li>
+            <li><Link href="/contact" className="text-gray-400 hover:text-white">Contact</Link></li>
+            <li><Link href="/privacy-policy" className="text-gray-400 hover:text-white">Privacy Policy</Link></li>
           </ul>
         </div>
       </div>
@@ -68,4 +69,5 @@ const Footer = () => (
     </div>
   </footer>
 );
+
 export default Footer;

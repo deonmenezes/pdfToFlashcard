@@ -3,7 +3,7 @@
 import { FC, useState, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { Menu, X, Users, LogOut, User, Settings } from "lucide-react";
+import { Menu, X, Users, LogOut, User, Settings, CreditCard, Star } from "lucide-react";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { 
@@ -29,6 +29,8 @@ const Navigation: FC<NavigationProps> = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [user, setUser] = useState<any>(null);
+  const [isStarAnimating, setIsStarAnimating] = useState(false);
+  const [isButtonClicked, setIsButtonClicked] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
@@ -57,6 +59,16 @@ const Navigation: FC<NavigationProps> = () => {
     return () => unsubscribe();
   }, [auth]);
 
+  // Reset button click animation after it completes
+  useEffect(() => {
+    if (isButtonClicked) {
+      const timer = setTimeout(() => {
+        setIsButtonClicked(false);
+      }, 600);
+      return () => clearTimeout(timer);
+    }
+  }, [isButtonClicked]);
+
   const toggleTheme = () => {
     setIsDarkMode((prev) => !prev);
     document.documentElement.classList.toggle("dark");
@@ -82,6 +94,16 @@ const Navigation: FC<NavigationProps> = () => {
         description: "An error occurred while logging out."
       });
     }
+  };
+
+  const handlePricingClick = () => {
+    setIsButtonClicked(true);
+    setIsStarAnimating(true);
+    
+    // Actually navigate to subscriptions page
+    setTimeout(() => {
+      router.push('/subscriptions');
+    }, 300);
   };
 
   const renderAuthButtons = () => {
@@ -124,6 +146,10 @@ const Navigation: FC<NavigationProps> = () => {
                 <Users className="mr-2 h-4 w-4" />
                 <span>My Quizzes</span>
               </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => router.push('/subscriptions')}>
+                <CreditCard className="mr-2 h-4 w-4" />
+                <span>Subscription</span>
+              </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={handleLogout} className="text-red-500 focus:text-red-600">
                 <LogOut className="mr-2 h-4 w-4" />
@@ -154,27 +180,46 @@ const Navigation: FC<NavigationProps> = () => {
     );
   };
 
+  // Animation for the star icon
+  const starAnimation = {
+    animate: {
+      rotate: [0, 20, -20, 10, -10, 0],
+      scale: [1, 1.2, 1],
+      filter: ["drop-shadow(0 0 0 rgba(255, 215, 0, 0))", "drop-shadow(0 0 5px rgba(255, 215, 0, 0.8))", "drop-shadow(0 0 0 rgba(255, 215, 0, 0))"],
+      transition: { duration: 1.5, repeat: 0 }
+    },
+    initial: {
+      rotate: 0,
+      scale: 1,
+      filter: "drop-shadow(0 0 0 rgba(255, 215, 0, 0))"
+    },
+    // New click animation for the star
+    click: {
+      rotate: [0, 180],
+      scale: [1, 1.5, 1],
+      filter: ["drop-shadow(0 0 0 rgba(255, 215, 0, 0))", "drop-shadow(0 0 10px rgba(255, 215, 0, 1))", "drop-shadow(0 0 15px rgba(255, 255, 0, 1))", "drop-shadow(0 0 0 rgba(255, 215, 0, 0))"],
+      transition: { duration: 0.6, ease: "easeOut" }
+    }
+  };
+
+  // Get current star animation based on state
+  const getCurrentStarAnimation = () => {
+    if (isButtonClicked) return starAnimation.click;
+    if (isStarAnimating) return starAnimation.animate;
+    return starAnimation.initial;
+  };
+
   const renderMenuItems = () => {
     return (
       <>
-        <a
-          href="#features"
-          className="text-gray-600 hover:text-blue-600 dark:text-gray-300 dark:hover:text-blue-400 font-medium"
-        >
-          Features
-        </a>
+       
         <a
           href="#how-it-works"
           className="text-gray-600 hover:text-blue-600 dark:text-gray-300 dark:hover:text-blue-400 font-medium"
         >
           How it Works
         </a>
-        <a
-          href="#testimonials"
-          className="text-gray-600 hover:text-blue-600 dark:text-gray-300 dark:hover:text-blue-400 font-medium"
-        >
-          Testimonials
-        </a>
+        
         <Link
           href="/communities"
           className="flex items-center space-x-1 font-medium text-purple-600 hover:text-purple-700 dark:text-purple-400 dark:hover:text-purple-300"
@@ -182,6 +227,43 @@ const Navigation: FC<NavigationProps> = () => {
           <Users className="h-4 w-4" />
           <span>Communities</span>
         </Link>
+        <div className="relative group">
+          <motion.div
+            whileHover={{ 
+              y: [0, -5, 0], 
+              transition: { duration: 0.5, ease: "easeInOut" } 
+            }}
+            whileTap={{ 
+              scale: 0.95,
+              boxShadow: "0 0 15px rgba(255, 215, 0, 0.5)",
+              transition: { duration: 0.1 }
+            }}
+            animate={isButtonClicked ? {
+              scale: [1, 0.95, 1.05, 1],
+              rotate: [0, -2, 2, 0],
+              boxShadow: ["0 4px 6px rgba(0, 0, 0, 0.1)", "0 10px 15px rgba(255, 215, 0, 0.3)", "0 4px 6px rgba(0, 0, 0, 0.1)"],
+              background: ["linear-gradient(to right, #fbbf24, #f59e0b)", "linear-gradient(to right, #fcd34d, #f59e0b)", "linear-gradient(to right, #fbbf24, #f59e0b)"],
+              transition: { duration: 0.6 }
+            } : {}}
+            onHoverStart={() => setIsStarAnimating(true)}
+            onHoverEnd={() => !isButtonClicked && setIsStarAnimating(false)}
+            onClick={handlePricingClick}
+            className="bg-gradient-to-r from-amber-400 to-yellow-500 hover:from-amber-500 hover:to-yellow-600 text-gray-900 font-medium px-4 py-2 rounded-lg shadow-md hover:shadow-lg transition-all flex items-center space-x-2 border border-amber-300 group-hover:border-amber-400 cursor-pointer"
+          >
+            <motion.div
+              animate={getCurrentStarAnimation()}
+              initial={starAnimation.initial}
+            >
+              <Star className="h-4 w-4 text-white" />
+            </motion.div>
+            <span>Pricing</span>
+            <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold px-1.5 rounded-full">
+              Pro
+            </span>
+          </motion.div>
+        </div>
+        
+        
       </>
     );
   };
@@ -281,8 +363,58 @@ const Navigation: FC<NavigationProps> = () => {
           className="md:hidden mt-4 bg-white dark:bg-gray-800 py-2"
         >
           <div className="flex flex-col space-y-3 px-6">
-            {renderMenuItems()}
-            <div className="flex flex-col space-y-2">
+          
+            <a
+              href="#how-it-works"
+              className="text-gray-600 hover:text-blue-600 dark:text-gray-300 dark:hover:text-blue-400 font-medium py-2"
+            >
+              How it Works
+            </a>
+            
+            <div className="py-2">
+              <motion.button
+                className="bg-gradient-to-r from-amber-400 to-yellow-500 hover:from-amber-500 hover:to-yellow-600 text-gray-900 font-medium w-full py-2 rounded-lg shadow-md hover:shadow-lg transition-all flex items-center justify-center space-x-2 border border-amber-300 relative"
+                whileHover={{ 
+                  y: [0, -3, 0],
+                  transition: { duration: 0.5, ease: "easeInOut" }
+                }}
+                whileTap={{ 
+                  scale: 0.95,
+                  boxShadow: "0 0 15px rgba(255, 215, 0, 0.5)",
+                  transition: { duration: 0.1 }
+                }}
+                animate={isButtonClicked ? {
+                  scale: [1, 0.95, 1.05, 1],
+                  rotate: [0, -2, 2, 0],
+                  boxShadow: ["0 4px 6px rgba(0, 0, 0, 0.1)", "0 10px 15px rgba(255, 215, 0, 0.3)", "0 4px 6px rgba(0, 0, 0, 0.1)"],
+                  background: ["linear-gradient(to right, #fbbf24, #f59e0b)", "linear-gradient(to right, #fcd34d, #f59e0b)", "linear-gradient(to right, #fbbf24, #f59e0b)"],
+                  transition: { duration: 0.6 }
+                } : {}}
+                onHoverStart={() => setIsStarAnimating(true)}
+                onHoverEnd={() => !isButtonClicked && setIsStarAnimating(false)}
+                onClick={handlePricingClick}
+              >
+                <motion.div
+                  animate={getCurrentStarAnimation()}
+                  initial={starAnimation.initial}
+                >
+                  <Star className="h-4 w-4 text-white" />
+                </motion.div>
+                <span>Pricing</span>
+                <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold px-1.5 rounded-full">
+                  Pro
+                </span>
+              </motion.button>
+            </div>
+            
+            <Link
+              href="/communities"
+              className="flex items-center space-x-1 font-medium text-purple-600 hover:text-purple-700 dark:text-purple-400 dark:hover:text-purple-300 py-2"
+            >
+              <Users className="h-4 w-4" />
+              <span>Communities</span>
+            </Link>
+            <div className="flex flex-col space-y-2 pt-2">
               {user ? (
                 <div className="flex flex-col space-y-2">
                   <div className="flex items-center space-x-2 mb-2">
@@ -323,6 +455,13 @@ const Navigation: FC<NavigationProps> = () => {
                   >
                     <Users className="h-4 w-4 mr-2" />
                     My Quizzes
+                  </Button>
+                  <Button 
+                    onClick={() => router.push('/subscription')}
+                    className="w-full"
+                  >
+                    <CreditCard className="h-4 w-4 mr-2" />
+                    Subscription
                   </Button>
                   <Button 
                     onClick={handleLogout}
