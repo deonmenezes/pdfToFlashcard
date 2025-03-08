@@ -6,7 +6,7 @@ import Image from "next/image";
 import { Menu, X, Users, LogOut, User, Settings, CreditCard, Star } from "lucide-react";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
-import ARVRNavButton from "../arvrButton/page";
+import ARVRNavButton from "../arvrButton/ArVrButton";
 import { 
   DropdownMenu, 
   DropdownMenuContent, 
