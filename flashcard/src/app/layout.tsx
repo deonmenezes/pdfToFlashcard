@@ -2,8 +2,9 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
-import Navigation from "./components/Navigation/page"; // This component can be client-side
+import Navigation from "./components/Navigation/page";
 import Footer from "./components/Footer/page";
+import AuthProviderWrapper from "./components/AuthProviderWrapper/AuthProviderWrapper";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -22,9 +23,11 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={inter.className}>
-        <Navigation /> {/* Navigation component is client-side */}
-        <main>{children}</main>
-        <Footer />
+        <AuthProviderWrapper>
+          <Navigation />
+          <main>{children}</main>
+          <Footer />
+        </AuthProviderWrapper>
       </body>
     </html>
   );

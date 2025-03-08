@@ -141,7 +141,12 @@ export default function SignUpPage() {
         email: user.email,
         displayName: displayName || user.displayName || user.email?.split('@')[0] || "User",
         phoneNumber: phoneNumber || user.phoneNumber || null,
-        profileCompleted: false
+        profileCompleted: false,
+        photoURL: null,
+        metadata: {
+          creationTime: undefined,
+          lastSignInTime: undefined
+        }
       });
       
       return true;

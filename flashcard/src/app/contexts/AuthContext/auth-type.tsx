@@ -7,6 +7,7 @@ import {
 } from 'firebase/auth';
 import { doc, getDoc } from 'firebase/firestore';
 import { auth, db } from '../../../../firebaseConfig';
+
 // Define user type
 type UserType = {
   uid: string;
@@ -14,7 +15,14 @@ type UserType = {
   displayName: string | null;
   phoneNumber: string | null;
   profileCompleted: boolean;
+  photoURL: string | null;
+  metadata: {
+    creationTime?: string;
+    lastSignInTime?: string;
+    // Add any other metadata properties you need
+  };
 } | null;
+
 // Define context type
 type AuthContextType = {
   user: UserType;
@@ -22,6 +30,7 @@ type AuthContextType = {
   setUser: (user: UserType) => void;
   signOut: () => Promise<void>;
 };
+
 // Create context with default values
 const AuthContext = createContext<AuthContextType>({
   user: null,
@@ -29,12 +38,15 @@ const AuthContext = createContext<AuthContextType>({
   setUser: () => {},
   signOut: async () => {},
 });
+
 // Custom hook for using the auth context
 export const useAuth = () => useContext(AuthContext);
+
 // Provider component
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<UserType>(null);
   const [loading, setLoading] = useState(true);
+
   useEffect(() => {
     // Listen for authentication state changes
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser: FirebaseUser | null) => {
@@ -53,7 +65,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
               email: firebaseUser.email,
               displayName: userData.displayName || firebaseUser.displayName,
               phoneNumber: userData.phoneNumber || firebaseUser.phoneNumber,
-              profileCompleted: userData.profileCompleted || false
+              profileCompleted: userData.profileCompleted || false,
+              photoURL: userData.photoURL || firebaseUser.photoURL,
+              metadata: {
+                creationTime: firebaseUser.metadata.creationTime || undefined,
+                lastSignInTime: firebaseUser.metadata.lastSignInTime || undefined
+              }
             });
           } else {
             // If no Firestore document exists yet, use basic Firebase user data
@@ -62,7 +79,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
               email: firebaseUser.email,
               displayName: firebaseUser.displayName,
               phoneNumber: firebaseUser.phoneNumber,
-              profileCompleted: false
+              profileCompleted: false,
+              photoURL: firebaseUser.photoURL,
+              metadata: {
+                creationTime: firebaseUser.metadata.creationTime || undefined,
+                lastSignInTime: firebaseUser.metadata.lastSignInTime || undefined
+              }
             });
           }
         } catch (error) {
@@ -73,7 +95,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             email: firebaseUser.email,
             displayName: firebaseUser.displayName,
             phoneNumber: firebaseUser.phoneNumber,
-            profileCompleted: false
+            profileCompleted: false,
+            photoURL: firebaseUser.photoURL,
+            metadata: {
+              creationTime: firebaseUser.metadata.creationTime || undefined,
+              lastSignInTime: firebaseUser.metadata.lastSignInTime || undefined
+            }
           });
         }
       } else {

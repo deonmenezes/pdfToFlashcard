@@ -127,7 +127,12 @@ export default function LoginPage() {
           email: user.email || userData.email,
           displayName: user.displayName || userData.displayName,
           phoneNumber: user.phoneNumber || userData.phoneNumber,
-          profileCompleted: userData.profileCompleted || false
+          profileCompleted: userData.profileCompleted || false,
+          photoURL: null,
+          metadata: {
+            creationTime: undefined,
+            lastSignInTime: undefined
+          }
         });
         
         return userData;
@@ -154,7 +159,12 @@ export default function LoginPage() {
           email: user.email,
           displayName: user.displayName || user.email?.split('@')[0] || "User",
           phoneNumber: user.phoneNumber || null,
-          profileCompleted: false
+          profileCompleted: false,
+          photoURL: null,
+          metadata: {
+            creationTime: undefined,
+            lastSignInTime: undefined
+          }
         });
         
         return newUserData;

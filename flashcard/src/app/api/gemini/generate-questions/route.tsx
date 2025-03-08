@@ -198,7 +198,7 @@ export async function POST(request: NextRequest) {
     
     1. 5 Flashcards (question and answer pairs)
     2. 5 Multiple Choice Questions with 4 options each
-    3. 2 Matching Questions (with at least 4 pairs to match)
+    3. 2 Matching Questions (with at least 4 pairs to match do give repeated terms please)
     4. 5 True/False Questions
     
     The questions should cover the main concepts and important information from the document. Make them educational and helpful for someone studying this material.
