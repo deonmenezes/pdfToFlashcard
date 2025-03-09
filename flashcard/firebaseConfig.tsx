@@ -3,14 +3,14 @@ import { getAuth } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
 
 const firebaseConfig = {
-    apiKey: "AIzaSyCP4xR7Q_jDzQON7lSVxaAUn_MXhUHPcG0",
-    authDomain: "quizitt-caa26.firebaseapp.com",
-    databaseURL: "https://quizitt-caa26-default-rtdb.asia-southeast1.firebasedatabase.app",
-    projectId: "quizitt-caa26",
-    storageBucket: "quizitt-caa26.firebasestorage.app",
-    messagingSenderId: "174304432711",
-    appId: "1:174304432711:web:1d7bcba28fccf7c5211762",
-    measurementId: "G-SQ7EGZ08ZE"
+  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
+  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
+  databaseURL: process.env.NEXT_PUBLIC_FIREBASE_DATABASE_URL,
+  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
+  measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID
 };
 
 // Ensure Firebase is initialized only once

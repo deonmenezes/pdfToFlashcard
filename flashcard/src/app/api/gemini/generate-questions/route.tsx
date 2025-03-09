@@ -43,7 +43,7 @@ interface ResponseBody {
 }
 
 // Initialize the Gemini API with environment variable
-const API_KEY = "AIzaSyCcQKQMSx-J7W-sAWoGwYa1obKA1SNycb0";
+const API_KEY = process.env.GEMINI_API_KEY as string;
 const genAI = new GoogleGenerativeAI(API_KEY);
 
 export async function POST(request: NextRequest) {
