@@ -2,9 +2,11 @@ import { NextRequest, NextResponse } from 'next/server';
 import { GoogleGenerativeAI, HarmCategory, HarmBlockThreshold } from '@google/generative-ai';
 import mammoth from 'mammoth';
 import * as XLSX from 'xlsx';
+import sharp from 'sharp';
 
 // Define request and response types
 interface RequestBody {
+  quantities: any;
   fileContent: string;
   fileName: string;
   fileType: string;
@@ -43,8 +45,70 @@ interface ResponseBody {
 }
 
 // Initialize the Gemini API with environment variable
-const API_KEY = "AIzaSyCcQKQMSx-J7W-sAWoGwYa1obKA1SNycb0";
+// Note: Consider moving this to an environment variable for security
+const API_KEY = process.env.GEMINI_API_KEY || "YOUR_API_KEY_HERE";
 const genAI = new GoogleGenerativeAI(API_KEY);
+
+// Function to perform OCR on image data
+async function performOCR(imageBuffer: Buffer): Promise<string> {
+  try {
+    // Improved approach to import Tesseract
+    const { createWorker } = await import('tesseract.js');
+    
+    // Specify the worker path explicitly to resolve path issues
+    const workerOptions = {
+      workerPath: 'https://unpkg.com/tesseract.js@v4.0.1/dist/worker.min.js',
+      langPath: 'https://tessdata.projectnaptha.com/4.0.0',
+      corePath: 'https://unpkg.com/tesseract.js-core@v4.0.1/tesseract-core.wasm.js',
+    };
+    
+    // Create a worker with options and language
+    const worker = await createWorker('eng', 1, workerOptions);
+    
+    // Recognize text from image buffer
+    const { data } = await worker.recognize(imageBuffer);
+    
+    // Terminate worker to free resources
+    await worker.terminate();
+    
+    console.log('OCR completed successfully, extracted text length:', data.text.length);
+    return data.text;
+  } catch (error) {
+    console.error('OCR processing failed:', error);
+    // Return empty string instead of throwing error to allow process to continue
+    return "";
+  }
+}
+
+// Function to convert PDF to text
+async function extractTextFromPdf(pdfBuffer: Buffer): Promise<string> {
+  try {
+    // Regular PDF extraction first
+    const pdfParse = (await import('pdf-parse')).default;
+    const pdfData = await pdfParse(pdfBuffer);
+    const textContent = pdfData.text;
+    
+    console.log('PDF extraction successful, length:', textContent.length);
+    
+    // If text is minimal or appears to be scanned, try OCR as fallback
+    if (textContent.trim().length < 100 || 
+        textContent.replace(/[^a-zA-Z0-9]/g, '').length < textContent.length * 0.1) {
+      console.log('PDF appears to be scanned, attempting alternative extraction');
+      
+      // We'll skip the Tesseract OCR approach since it's failing
+      // Instead, we'll just warn that the content might be limited
+      console.log('Limited text extracted from what appears to be a scanned document');
+      
+      // Return the limited content we have
+      return textContent || "This appears to be a scanned document with limited text content.";
+    }
+    
+    return textContent;
+  } catch (error) {
+    console.error('PDF processing failed:', error);
+    return "Error extracting PDF content. The file may be corrupted or in an unsupported format.";
+  }
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -88,8 +152,8 @@ export async function POST(request: NextRequest) {
     let textContent = '';
     
     try {
-      // Decode base64 content if needed
-      let fileBuffer;
+      // Decode base64 content
+      let fileBuffer: Buffer;
       
       if (fileContent.startsWith('data:') && fileContent.includes('base64,')) {
         const base64Data = fileContent.split('base64,')[1];
@@ -103,15 +167,11 @@ export async function POST(request: NextRequest) {
       }
       
       // Process by file type
-      const fileExt = fileName.toLowerCase().split('.').pop();
+      const fileExt = fileName.toLowerCase().split('.').pop() || '';
       
       if (fileType === 'pdf' || fileExt === 'pdf') {
-        // Dynamically import pdf-parse to avoid startup errors
-        const pdfParse = (await import('pdf-parse')).default;
-        // Handle PDF files
-        const pdfData = await pdfParse(fileBuffer);
-        textContent = pdfData.text;
-        console.log('PDF extraction successful, length:', textContent.length);
+        // Extract text from PDF - removed OCR due to errors
+        textContent = await extractTextFromPdf(fileBuffer);
       } 
       else if (fileType === 'word' || fileExt === 'docx' || fileExt === 'doc') {
         // Handle Word documents
@@ -129,8 +189,6 @@ export async function POST(request: NextRequest) {
       } 
       else if (fileType === 'powerpoint' || fileExt === 'pptx' || fileExt === 'ppt') {
         // PowerPoint is more complex, we'll extract what we can
-        // For PowerPoint, text extraction is limited without additional libraries
-        // This is a simplified approach
         textContent = "PowerPoint content extraction is limited. Please convert to PDF for better results.";
         
         // Try to extract some text if possible
@@ -159,6 +217,11 @@ export async function POST(request: NextRequest) {
         }
         console.log('Spreadsheet extraction successful, length:', textContent.length);
       } 
+      // Add support for image files that may contain text (simplified to avoid Tesseract issues)
+      else if (['jpg', 'jpeg', 'png', 'tiff', 'bmp', 'gif'].includes(fileExt)) {
+        console.log('Processing image file - OCR disabled due to worker issues');
+        textContent = "Image processing is currently limited. Please convert text content to a document format.";
+      }
       else {
         // Default: try to extract as text
         textContent = fileBuffer.toString('utf-8');
@@ -170,7 +233,7 @@ export async function POST(request: NextRequest) {
       }
       
     } catch (error) {
-      // Fix: Type guard for the extraction error
+      // Handle extraction error
       console.error('Error extracting file content:', error);
       const errorMessage = error instanceof Error ? error.message : 'Unknown extraction error occurred';
       return NextResponse.json(
@@ -185,55 +248,58 @@ export async function POST(request: NextRequest) {
     const isTruncated = textContent.length > MAX_CONTENT_LENGTH;
 
     // Create a prompt for Gemini
-    const prompt = `
-    You are an educational content creator. Based on the following document content, generate educational quiz questions in JSON format.
-    
-    File name: ${fileName}
-    File type: ${fileType}
-    
-    Document content: 
-    ${truncatedContent} ${isTruncated ? '(content truncated for length)' : ''}
-    
-    Create the following types of questions based on the document content:
-    
-    1. 5 Flashcards (question and answer pairs)
-    2. 5 Multiple Choice Questions with 4 options each
-    3. 2 Matching Questions (with at least 4 pairs to match do give repeated terms please)
-    4. 5 True/False Questions
-    
-    The questions should cover the main concepts and important information from the document. Make them educational and helpful for someone studying this material.
-    dont ask them questions like "name of the document " or anything about the document only generate questions with the information in the file
+    // Update in the POST function in paste.txt, where the prompt is created
 
-    Return your response in the following JSON format exactly. Do not include any explanations or markdown formatting, just the raw JSON:
-    
-    {
-      "flashcards": [
-        { "question": "...", "answer": "..." },
-        ...
-      ],
-      "mcqs": [
-        { "question": "...", "options": ["...", "...", "...", "..."], "correctAnswer": 0 },
-        ...
-      ],
-      "matchingQuestions": [
-        { 
-          "id": 1, 
-          "question": "...", 
-          "leftItems": ["...", "...", "...", "..."], 
-          "rightItems": ["...", "...", "...", "..."], 
-          "correctMatches": [0, 1, 2, 3] 
-        },
-        ...
-      ],
-      "trueFalseQuestions": [
-        { "id": 1, "question": "...", "isTrue": true },
-        ...
-      ]
-    }
-    
-    Note: For multiple choice questions, "correctAnswer" is the zero-based index of the correct option.
-    For matching questions, "correctMatches" is an array where each index corresponds to a leftItem, and the value is the index of the matching rightItem.
-    `;
+// Create a prompt for Gemini
+  const prompt = `
+      You are an educational content creator. Based on the following document content, generate educational quiz questions in JSON format.
+
+      File name: ${fileName}
+      File type: ${fileType}
+
+      Document content: 
+      ${truncatedContent} ${isTruncated ? '(content truncated for length)' : ''}
+
+      Create the following types of questions based on the document content:
+
+      1. ${body.quantities?.flashcards || 5} Flashcards (question and answer pairs)
+      2. ${body.quantities?.mcqs || 5} Multiple Choice Questions with 4 options each
+      3. ${body.quantities?.matching || 2} Matching Questions (with at least 4 pairs to match - do not give repeated terms please)
+      4. ${body.quantities?.trueFalse || 5} True/False Questions
+
+      The questions should cover the main concepts and important information from the document. Make them educational and helpful for someone studying this material.
+      Don't ask them questions like "name of the document" or anything about the document itself - only generate questions with the information in the file.
+
+      Return your response in the following JSON format exactly. Do not include any explanations or markdown formatting, just the raw JSON:
+
+      {
+        "flashcards": [
+          { "question": "...", "answer": "..." },
+          ...
+        ],
+        "mcqs": [
+          { "question": "...", "options": ["...", "...", "...", "..."], "correctAnswer": 0 },
+          ...
+        ],
+        "matchingQuestions": [
+          { 
+            "id": 1, 
+            "question": "...", 
+            "leftItems": ["...", "...", "...", "..."], 
+            "rightItems": ["...", "...", "...", "..."], 
+            "correctMatches": [0, 1, 2, 3] 
+          },
+          ...
+        ],
+        "trueFalseQuestions": [
+          { "id": 1, "question": "...", "isTrue": true },
+          ...
+        ]
+      }
+
+      Note: For multiple choice questions, "correctAnswer" is the zero-based index of the correct option.
+      For matching questions, "correctMatches" is an array where each index corresponds to a leftItem, and the value is the index of the matching rightItem.
+      `;
 
     try {
       console.log('Sending request to Gemini API...');
@@ -285,7 +351,7 @@ export async function POST(request: NextRequest) {
       }
       
       // Validate the response structure
-      const validateArray = (arr: any[], name: string) => {
+      const validateArray = (arr: any[] | undefined, name: string): boolean => {
         if (!arr || !Array.isArray(arr)) {
           console.error(`Invalid response structure: ${name} is missing or not an array`);
           return false;
@@ -334,7 +400,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(parsedResponse, { status: 200 });
       
     } catch (error) {
-      // Fix: Type guard for Gemini API error
+      // Handle Gemini API error
       console.error("Gemini API error:", error);
       const errorMessage = error instanceof Error ? error.message : 'Unknown Gemini API error occurred';
       return NextResponse.json(

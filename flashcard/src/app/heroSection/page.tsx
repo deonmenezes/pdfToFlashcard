@@ -17,12 +17,24 @@ import { auth } from '../../../firebaseConfig';
 import { onAuthStateChanged } from 'firebase/auth';
 import { toast } from 'sonner';
 import Link from 'next/link';
+import { 
+  Tabs, 
+  TabsList, 
+  TabsTrigger, 
+  TabsContent 
+} from '@/components/ui/tabs';
 
 interface GeminiRequest {
   fileContent: string;
   fileName: string;
   fileType: string;
   customPrompt?: string;
+  quantities?: {
+    flashcards: number;
+    mcqs: number;
+    matching: number;
+    trueFalse: number;
+  }
 }
 
 interface GeminiResponse {
@@ -63,6 +75,24 @@ const HeroSection: React.FC = () => {
   const [isLoggedIn, setIsLoggedIn] = useState<boolean>(false);
   const [isAuthLoading, setIsAuthLoading] = useState<boolean>(true);
   const [user, setUser] = useState<any>(null);
+  const [questionQuantities, setQuestionQuantities] = useState({
+    flashcards: 5,
+    mcqs: 5,
+    matching: 2,
+    trueFalse: 5
+  });
+  
+  // Add the missing states
+  const [inputMode, setInputMode] = useState<'file' | 'text'>('file');
+  const [customText, setCustomText] = useState<string>('');
+  
+  // Add this function to handle quantity changes
+  const handleQuantityChange = (type: 'flashcards' | 'mcqs' | 'matching' | 'trueFalse', value: number) => {
+    setQuestionQuantities(prev => ({
+      ...prev,
+      [type]: value
+    }));
+  };
   
   const isProcessing = processingStatus !== 'idle';
   
@@ -150,7 +180,50 @@ const HeroSection: React.FC = () => {
       processMultipleFiles(e.target.files);
     }
   };
-  
+  const handleCustomTextSubmit = async () => {
+    if (!customText.trim()) {
+      setFileError("Please enter some text content first.");
+      return;
+    }
+    
+    if (!handleAuthRequiredAction()) return;
+    
+    setFileError(null);
+    setApiError(null);
+    setProcessingStatus('generating');
+    
+    try {
+      // Create a virtual file-like object
+      const textBlob = new Blob([customText], { type: 'text/plain' });
+      const textFile = new File([textBlob], "custom-text.txt", { type: 'text/plain' });
+      setFile(textFile);
+      
+      // Process the text content
+      const generatedQuestions = await generateQuestionsWithGemini(textFile);
+      
+      // Update states with generated questions
+      setFlashcards(generatedQuestions.flashcards);
+      setMcqs(generatedQuestions.mcqs);
+      setMatchingQuestions(generatedQuestions.matchingQuestions);
+      setTrueFalseQuestions(generatedQuestions.trueFalseQuestions);
+      
+      // Show the Quiz page
+      setShowQuizPage(true);
+    } catch (error) {
+      console.error("Error processing custom text:", error);
+      setApiError("An error occurred while processing your text. Please try again.");
+      
+      // Fallback to demo data
+      setFlashcards(demoFlashcards);
+      setMcqs(demoMCQs);
+      setMatchingQuestions(demoMatchingQuestions);
+      setTrueFalseQuestions(demoTrueFalseQuestions);
+      
+      setShowQuizPage(true);
+    } finally {
+      setProcessingStatus('idle');
+    }
+  };
   // Function to process multiple files
   const processMultipleFiles = async (files: FileList) => {
     setFileError(null);
@@ -158,6 +231,9 @@ const HeroSection: React.FC = () => {
     
     // Convert FileList to array for easier processing
     const fileArray = Array.from(files);
+    
+    // Add this line to create allMcqs array
+    const allMcqs: MCQ[] = [];
     
     // Filter only supported file types
     const supportedFiles = fileArray.filter(file => checkFileType(file));
@@ -172,11 +248,8 @@ const HeroSection: React.FC = () => {
     setProcessedFiles(0);
     setProcessingStatus('reading');
     
-    // Process each file and combine results
-    const allFlashcards: Flashcard[] = [];
-    const allMcqs: MCQ[] = [];
-    const allMatchingQuestions: MatchingQuestion[] = [];
-    const allTrueFalseQuestions: TrueFalseQuestion[] = [];
+    // Add the handleCustomTextSubmit function
+   
     
     try {
       for (let i = 0; i < supportedFiles.length; i++) {
@@ -191,17 +264,17 @@ const HeroSection: React.FC = () => {
         const generatedQuestions = await generateQuestionsWithGemini(currentFile);
         
         // Combine results
-        allFlashcards.push(...generatedQuestions.flashcards);
+        flashcards.push(...generatedQuestions.flashcards);
         allMcqs.push(...generatedQuestions.mcqs);
-        allMatchingQuestions.push(...generatedQuestions.matchingQuestions);
-        allTrueFalseQuestions.push(...generatedQuestions.trueFalseQuestions);
+        matchingQuestions.push(...generatedQuestions.matchingQuestions);
+        trueFalseQuestions.push(...generatedQuestions.trueFalseQuestions);
       }
       
       // Update state with combined questions
-      setFlashcards(allFlashcards);
+      setFlashcards(flashcards);
       setMcqs(allMcqs);
-      setMatchingQuestions(allMatchingQuestions);
-      setTrueFalseQuestions(allTrueFalseQuestions);
+      setMatchingQuestions(matchingQuestions);
+      setTrueFalseQuestions(trueFalseQuestions);
       
       // Show the Quiz page
       setShowQuizPage(true);
@@ -268,17 +341,31 @@ const HeroSection: React.FC = () => {
     }
   };
 
+  // Update the generateQuestionsWithGemini function
   const generateQuestionsWithGemini = async (file: File) => {
     try {
       // Read file content
       const fileContent = await readFileContent(file);
       const fileType = getFileType(file.name);
       
+      // Initialize empty arrays for combined results
+      const allFlashcards: Flashcard[] = [];
+      const allMcqs: MCQ[] = [];
+      const allMatchingQuestions: MatchingQuestion[] = [];
+      const allTrueFalseQuestions: TrueFalseQuestion[] = [];
+      
       // Prepare request payload
       const payload: GeminiRequest = {
         fileContent: typeof fileContent === 'string' ? fileContent : Buffer.from(fileContent).toString('base64'),
         fileName: file.name,
-        fileType: fileType
+        fileType: fileType,
+        // Add question quantities to the payload
+        quantities: {
+          flashcards: questionQuantities.flashcards,
+          mcqs: questionQuantities.mcqs,
+          matching: questionQuantities.matching,
+          trueFalse: questionQuantities.trueFalse
+        }
       };
       
       // Add custom prompt if enabled
@@ -295,7 +382,7 @@ const HeroSection: React.FC = () => {
           },
           body: JSON.stringify(payload),
         });
-        
+      
         if (!response.ok) {
           console.warn(`API returned error status: ${response.status} ${response.statusText}`);
           // Return demo data if API call fails
@@ -399,243 +486,386 @@ const HeroSection: React.FC = () => {
     fileInputRef.current?.click();
   };
 
-  return (
-    <AnimatePresence mode="sync">
-      {!showQuizPage ? (
-        <motion.div 
-          key="hero"
-          initial={{ opacity: 1 }}
-          exit={{ opacity: 0, y: -20 }}
-          transition={{ duration: 0.3 }}
-          className="bg-gradient-to-br from-blue-50 to-purple-50 dark:from-gray-900 dark:to-gray-800 py-16 px-4 sm:px-6 lg:px-8"
-        >
-          <div className="max-w-7xl mx-auto">
-            <div className="flex flex-col lg:flex-row items-center justify-between">
-              <div className="mb-12 lg:mb-0 lg:max-w-xl">
-                <motion.div
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.4 }}
-                >
-                  <h1 className="text-4xl md:text-5xl font-extrabold text-gray-900 dark:text-white mb-6 leading-tight">
-                    Transform Your Documents into <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-purple-600">Interactive Quizzes</span>
-                  </h1>
-                  <p className="text-xl text-gray-600 dark:text-gray-300 mb-8">
-                    Upload any document and our AI will instantly generate customized flashcards and quiz questions to enhance your learning experience.
-                  </p>
+  function handleGenerateMore(type: 'flashcards' | 'mcqs' | 'matching' | 'trueFalse', quantity: number): Promise<void> {
+    return new Promise<void>(async (resolve, reject) => {
+      if (!file) {
+        toast.error("No file available to generate additional questions");
+        reject(new Error("No file available"));
+        return;
+      }
+  
+      try {
+        setProcessingStatus('generating');
+        setExtractedTextPreview(`Generating additional ${quantity} ${type}...`);
+        
+        // Create a request payload with just the specific question type quantity
+        const modifiedQuantities = {
+          flashcards: type === 'flashcards' ? quantity : 0,
+          mcqs: type === 'mcqs' ? quantity : 0,
+          matching: type === 'matching' ? quantity : 0,
+          trueFalse: type === 'trueFalse' ? quantity : 0
+        };
+        
+        // Prepare request payload
+        const payload: GeminiRequest = {
+          fileContent: await readFileContent(file),
+          fileName: file.name,
+          fileType: getFileType(file.name),
+          quantities: modifiedQuantities
+        };
+        
+        // Add custom prompt if enabled
+        if (useCustomPrompt && customPrompt.trim()) {
+          payload.customPrompt = customPrompt.trim();
+        }
+        
+        // Make API call
+        const response = await fetch('/api/gemini/generate-questions', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(payload),
+        });
+        
+        if (!response.ok) {
+          throw new Error(`API returned error status: ${response.status}`);
+        }
+        
+        const data: GeminiResponse = await response.json();
+        
+        // Process and add new questions based on type
+        if (type === 'flashcards') {
+          const newFlashcards = FlashcardGenerator.processFlashcards(data.flashcards);
+          setFlashcards(prev => [...prev, ...newFlashcards]);
+        } else if (type === 'mcqs') {
+          const newMCQs = data.mcqs.map(mcq => MCQGenerator.shuffleMCQOptions(mcq));
+          setMcqs(prev => [...prev, ...newMCQs]);
+        } else if (type === 'matching') {
+          const newMatchingQuestions = data.matchingQuestions.map(q => {
+            // Create shuffled indices
+            const shuffledIndices = [...Array(q.rightItems.length).keys()];
+            for (let i = shuffledIndices.length - 1; i > 0; i--) {
+              const j = Math.floor(Math.random() * (i + 1));
+              [shuffledIndices[i], shuffledIndices[j]] = [shuffledIndices[j], shuffledIndices[i]];
+            }
+            
+            // Shuffle right items
+            const shuffledRightItems = shuffledIndices.map(i => q.rightItems[i]);
+            
+            // Update correct matches
+            const newCorrectMatches = q.correctMatches.map(originalIndex => 
+              shuffledIndices.findIndex(shuffledIndex => shuffledIndex === originalIndex)
+            );
+            
+            return {
+              ...q,
+              rightItems: shuffledRightItems,
+              correctMatches: newCorrectMatches
+            };
+          });
+          setMatchingQuestions(prev => [...prev, ...newMatchingQuestions]);
+        } else if (type === 'trueFalse') {
+          const newTrueFalseQuestions = TrueFalseQuestionGenerator.balanceTrueFalseQuestions(
+            data.trueFalseQuestions
+          );
+          setTrueFalseQuestions(prev => [...prev, ...newTrueFalseQuestions]);
+        }
+        
+        toast.success(`Successfully generated ${quantity} additional ${type} questions!`);
+        resolve();
+      } catch (error) {
+        console.error(`Error generating more ${type}:`, error);
+        toast.error(`Failed to generate additional ${type} questions. Please try again.`);
+        reject(error);
+      } finally {
+        setProcessingStatus('idle');
+        setExtractedTextPreview(null);
+      }
+    });
+  }
 
-                  {!file && (
-                    <div className="flex flex-col sm:flex-row space-y-4 sm:space-y-0 sm:space-x-4">
-                      <Button 
-                        className="text-lg py-6 px-8 bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700"
-                        onClick={handleTryItNowClick}
-                      >
-                        Try it Now
-                      </Button>
-                      <input 
-                        type="file" 
-                        accept={SUPPORTED_FILE_TYPES.join(',')} 
-                        className="hidden" 
-                        ref={fileInputRef}
-                        onChange={handleFileInput}
-                        multiple // Enable multiple file selection
-                      />
-                      <Button variant="outline" className="text-lg py-6 px-8 dark:text-white dark:border-gray-600">
-                        Learn More
-                      </Button>
+  return (
+  
+      <AnimatePresence mode="sync">
+        {!showQuizPage ? (
+          <motion.div 
+            key="hero"
+            initial={{ opacity: 1 }}
+            exit={{ opacity: 0, y: -20 }}
+            transition={{ duration: 0.3 }}
+            className="bg-gradient-to-br from-blue-50 to-purple-50 dark:from-gray-900 dark:to-gray-800 py-16 px-4 sm:px-6 lg:px-8"
+          >
+            <div className="max-w-7xl mx-auto">
+              <div className="flex flex-col lg:flex-row items-center justify-between">
+                <div className="mb-12 lg:mb-0 lg:max-w-xl">
+                  <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.4 }}
+                  >
+                    <h1 className="text-4xl md:text-5xl font-extrabold text-gray-900 dark:text-white mb-6 leading-tight">
+                      Transform Your Documents into <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-purple-600">Interactive Quizzes</span>
+                    </h1>
+                    <p className="text-xl text-gray-600 dark:text-gray-300 mb-8">
+                      Upload any document or enter text directly and our AI will instantly generate customized flashcards and quiz questions to enhance your learning experience.
+                    </p>
+    
+                    {!file && (
+                      <div className="flex flex-col sm:flex-row space-y-4 sm:space-y-0 sm:space-x-4">
+                        <Button 
+                          className="text-lg py-6 px-8 bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700"
+                          onClick={() => inputMode === 'file' ? handleTryItNowClick() : setInputMode('text')}
+                        >
+                          Try it Now
+                        </Button>
+                        <input 
+                          type="file" 
+                          accept={SUPPORTED_FILE_TYPES.join(',')} 
+                          className="hidden" 
+                          ref={fileInputRef}
+                          onChange={handleFileInput}
+                          multiple // Enable multiple file selection
+                        />
+                        <Button variant="outline" className="text-lg py-6 px-8 dark:text-white dark:border-gray-600">
+                          Learn More
+                        </Button>
+                      </div>
+                    )}
+                  </motion.div>
+                </div>
+                
+                <motion.div 
+                  initial={{ opacity: 0, scale: 0.9 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ duration: 0.4 }}
+                  className="lg:w-1/2"
+                >
+                  <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-6 relative">
+                    <div className="absolute -top-4 -left-4 bg-blue-500 text-white px-4 py-2 rounded-lg text-sm font-medium">
+                      AI-Powered
                     </div>
-                  )}
+                    
+                    {!file ? (
+                      <div>
+                        {/* Custom Prompt Toggle - Only show if already logged in */}
+                        {isLoggedIn && (
+                          <div className="mb-6 flex items-center justify-between">
+                            <div className="flex items-center space-x-2">
+                              <Switch 
+                                checked={useCustomPrompt} 
+                                onCheckedChange={setUseCustomPrompt} 
+                                id="custom-prompt-toggle" 
+                              />
+                              <label 
+                                htmlFor="custom-prompt-toggle" 
+                                className="text-sm font-medium cursor-pointer text-gray-700 dark:text-gray-300"
+                              >
+                                Use Custom Prompt
+                              </label>
+                            </div>
+                            <div className="text-xs text-gray-500 dark:text-gray-400">
+                              Customize how questions are generated
+                            </div>
+                          </div>
+                          
+                        )}
+                        
+                        {/* Custom Prompt Input - only show when toggle is on and user is logged in */}
+                        {useCustomPrompt && isLoggedIn && (
+                          <motion.div 
+                            initial={{ opacity: 0, height: 0 }}
+                            animate={{ opacity: 1, height: 'auto' }}
+                            exit={{ opacity: 0, height: 0 }}
+                            className="mb-6"
+                          >
+                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                              Enter your custom prompt:
+                            </label>
+                            <textarea
+                              value={customPrompt}
+                              onChange={(e) => setCustomPrompt(e.target.value)}
+                              placeholder="E.g., Focus on specific topics, create questions suitable for beginners, emphasize key concepts..."
+                              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+                              rows={4}
+                            />
+                            <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                              Your instructions to the AI about what kind of questions to generate
+                            </p>
+                          </motion.div>
+                        )}
+                        
+                        {/* Tabs to switch between file upload and text input */}
+                        <Tabs 
+                          defaultValue="file" 
+                          onValueChange={(value) => setInputMode(value as 'file' | 'text')}
+                          className="w-full mb-6"
+                        >
+                          <TabsList className="grid grid-cols-2 mb-4">
+                            <TabsTrigger value="file">Upload File</TabsTrigger>
+                            <TabsTrigger value="text">Enter Text</TabsTrigger>
+                          </TabsList>
+                          
+                          <TabsContent value="file">
+                            <motion.div
+                              whileHover={{ scale: 1.01 }}
+                              className={`border-4 border-dashed rounded-xl p-8 text-center transition-all h-64 flex flex-col items-center justify-center ${
+                                isDragging 
+                                  ? "border-blue-500 bg-blue-50 dark:bg-blue-900/20" 
+                                  : "border-gray-300 dark:border-gray-700"
+                              }`}
+                              onDragOver={handleDragOver}
+                              onDragLeave={handleDragLeave}
+                              onDrop={handleDrop}
+                            >
+                              <motion.div 
+                                animate={{ y: [0, -8, 0] }}
+                                transition={{ duration: 1.5, repeat: Infinity, repeatType: "loop" }}
+                              >
+                                <svg 
+                                  xmlns="http://www.w3.org/2000/svg" 
+                                  className="h-16 w-16 text-blue-500 mb-4" 
+                                  fill="none" 
+                                  viewBox="0 0 24 24" 
+                                  stroke="currentColor"
+                                >
+                                  <path 
+                                    strokeLinecap="round" 
+                                    strokeLinejoin="round" 
+                                    strokeWidth={2} 
+                                    d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" 
+                                  />
+                                </svg>
+                              </motion.div>
+                              <h3 className="text-xl font-bold text-gray-800 dark:text-white mb-2">
+                                Drag & Drop Your Documents
+                              </h3>
+                              <p className="text-gray-600 dark:text-gray-300 mb-2">
+                                Supported formats: PDF, PPT, Word, Excel, Text
+                              </p>
+                              {fileError && (
+                                <p className="text-red-500 text-sm mb-2">{fileError}</p>
+                              )}
+                              {apiError && (
+                                <p className="text-red-500 text-sm mb-2">{apiError}</p>
+                              )}
+                              <Button 
+                                onClick={handleTryItNowClick} 
+                                className="mt-2 bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-md"
+                              >
+                                Choose Files
+                              </Button>
+                            </motion.div>
+                          </TabsContent>
+                          
+                          <TabsContent value="text">
+                            <div className="h-64 flex flex-col">
+                              <textarea
+                                value={customText}
+                                onChange={(e) => setCustomText(e.target.value)}
+                                placeholder="Paste or type your content here..."
+                                className="w-full h-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white resize-none"
+                              />
+                              {fileError && (
+                                <p className="text-red-500 text-sm mt-2">{fileError}</p>
+                              )}
+                              {apiError && (
+                                <p className="text-red-500 text-sm mt-2">{apiError}</p>
+                              )}
+                              <Button 
+                                onClick={handleCustomTextSubmit} 
+                                className="mt-4 bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-md"
+                                disabled={!customText.trim() || isProcessing}
+                              >
+                                Generate Quiz
+                              </Button>
+                            </div>
+                          </TabsContent>
+                        </Tabs>
+                      </div>
+                    ) : (
+                      <div className="h-64">
+                        {isProcessing && (
+                          <div className="flex flex-col items-center justify-center p-8 space-y-4 h-64">
+                            <div className="w-full">
+                              {totalFiles > 1 && inputMode === 'file' && (
+                                <div className="mb-2">
+                                  <div className="flex justify-between text-xs text-gray-600 dark:text-gray-400">
+                                    <span>Processing files: {processedFiles}/{totalFiles}</span>
+                                    <span>{Math.round((processedFiles/totalFiles) * 100)}%</span>
+                                  </div>
+                                  <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2.5">
+                                    <div 
+                                      className="bg-blue-500 h-2.5 rounded-full" 
+                                      style={{ width: `${(processedFiles/totalFiles) * 100}%` }}
+                                    ></div>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                            
+                            <motion.div
+                              animate={{ rotate: 360 }}
+                              transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                              className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full"
+                            />
+                            
+                            <div className="text-center">
+                              <h3 className="font-bold text-gray-800 dark:text-white">
+                                {inputMode === 'file' 
+                                  ? (totalFiles > 1 
+                                    ? `Processing ${processedFiles+1}/${totalFiles}: "${processingFilename}"`
+                                    : `Processing "${file?.name}"`)
+                                  : "Processing your text input"}
+                              </h3>
+                              <p className="text-gray-600 dark:text-gray-400">
+                                {processingStatus === 'reading' && "Reading content..."}
+                                {processingStatus === 'extracting' && "Extracting content..."}
+                                {processingStatus === 'generating' && "Generating questions with Quizitt Engine..."}
+                              </p>
+                              {extractedTextPreview && (
+                                <div className="mt-2 p-2 bg-gray-100 dark:bg-gray-700 rounded max-h-24 overflow-y-auto text-sm text-left">
+                                  <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Content Preview:</p>
+                                  {extractedTextPreview}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
                 </motion.div>
               </div>
-              
-              <motion.div 
-                initial={{ opacity: 0, scale: 0.9 }}
-                animate={{ opacity: 1, scale: 1 }}
-                transition={{ duration: 0.4 }}
-                className="lg:w-1/2"
-              >
-                <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-6 relative">
-                  <div className="absolute -top-4 -left-4 bg-blue-500 text-white px-4 py-2 rounded-lg text-sm font-medium">
-                    AI-Powered
-                  </div>
-                  
-                  {!file ? (
-                    <div>
-                      {/* Custom Prompt Toggle - Only show if already logged in */}
-                      {isLoggedIn && (
-                        <div className="mb-6 flex items-center justify-between">
-                          <div className="flex items-center space-x-2">
-                            <Switch 
-                              checked={useCustomPrompt} 
-                              onCheckedChange={setUseCustomPrompt} 
-                              id="custom-prompt-toggle" 
-                            />
-                            <label 
-                              htmlFor="custom-prompt-toggle" 
-                              className="text-sm font-medium cursor-pointer text-gray-700 dark:text-gray-300"
-                            >
-                              Use Custom Prompt
-                            </label>
-                          </div>
-                          <div className="text-xs text-gray-500 dark:text-gray-400">
-                            Customize how questions are generated
-                          </div>
-                        </div>
-                      )}
-                      
-                      {/* Custom Prompt Input - only show when toggle is on and user is logged in */}
-                      {useCustomPrompt && isLoggedIn && (
-                        <motion.div 
-                          initial={{ opacity: 0, height: 0 }}
-                          animate={{ opacity: 1, height: 'auto' }}
-                          exit={{ opacity: 0, height: 0 }}
-                          className="mb-6"
-                        >
-                          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                            Enter your custom prompt:
-                          </label>
-                          <textarea
-                            value={customPrompt}
-                            onChange={(e) => setCustomPrompt(e.target.value)}
-                            placeholder="E.g., Focus on specific topics, create questions suitable for beginners, emphasize key concepts..."
-                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
-                            rows={4}
-                          />
-                          <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                            Your instructions to the AI about what kind of questions to generate
-                          </p>
-                        </motion.div>
-                      )}
-                    
-                      <motion.div
-                        whileHover={{ scale: 1.01 }}
-                        className={`border-4 border-dashed rounded-xl p-8 text-center transition-all h-64 flex flex-col items-center justify-center ${
-                          isDragging 
-                            ? "border-blue-500 bg-blue-50 dark:bg-blue-900/20" 
-                            : "border-gray-300 dark:border-gray-700"
-                        }`}
-                        onDragOver={handleDragOver}
-                        onDragLeave={handleDragLeave}
-                        onDrop={handleDrop}
-                      >
-                        <motion.div 
-                          animate={{ y: [0, -8, 0] }}
-                          transition={{ duration: 1.5, repeat: Infinity, repeatType: "loop" }}
-                        >
-                          <svg 
-                            xmlns="http://www.w3.org/2000/svg" 
-                            className="h-16 w-16 text-blue-500 mb-4" 
-                            fill="none" 
-                            viewBox="0 0 24 24" 
-                            stroke="currentColor"
-                          >
-                            <path 
-                              strokeLinecap="round" 
-                              strokeLinejoin="round" 
-                              strokeWidth={2} 
-                              d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" 
-                            />
-                          </svg>
-                        </motion.div>
-                        <h3 className="text-xl font-bold text-gray-800 dark:text-white mb-2">
-                          Drag & Drop Your Documents
-                        </h3>
-                        <p className="text-gray-600 dark:text-gray-300 mb-2">
-                          Supported formats: PDF, PPT, Word, Excel, Text
-                        </p>
-                        {fileError && (
-                          <p className="text-red-500 text-sm mb-2">{fileError}</p>
-                        )}
-                        {apiError && (
-                          <p className="text-red-500 text-sm mb-2">{apiError}</p>
-                        )}
-                        <Button 
-                          onClick={handleTryItNowClick} 
-                          className="mt-2 bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-md"
-                        >
-                          Choose Files
-                        </Button>
-                      </motion.div>
-                    </div>
-                  ) : (
-                    <div className="h-64">
-                      {isProcessing && (
-                        <div className="flex flex-col items-center justify-center p-8 space-y-4 h-64">
-                          <div className="w-full">
-                            {totalFiles > 1 && (
-                              <div className="mb-2">
-                                <div className="flex justify-between text-xs text-gray-600 dark:text-gray-400">
-                                  <span>Processing files: {processedFiles}/{totalFiles}</span>
-                                  <span>{Math.round((processedFiles/totalFiles) * 100)}%</span>
-                                </div>
-                                <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2.5">
-                                  <div 
-                                    className="bg-blue-500 h-2.5 rounded-full" 
-                                    style={{ width: `${(processedFiles/totalFiles) * 100}%` }}
-                                  ></div>
-                                </div>
-                              </div>
-                            )}
-                          </div>
-                          
-                          <motion.div
-                            animate={{ rotate: 360 }}
-                            transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-                            className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full"
-                          />
-                          
-                          <div className="text-center">
-                            <h3 className="font-bold text-gray-800 dark:text-white">
-                              {totalFiles > 1 
-                                ? `Processing ${processedFiles+1}/${totalFiles}: "${processingFilename}"`
-                                : `Processing "${file?.name}"`}
-                            </h3>
-                            <p className="text-gray-600 dark:text-gray-400">
-                              {processingStatus === 'reading' && "Reading file..."}
-                              {processingStatus === 'extracting' && "Extracting content..."}
-                              {processingStatus === 'generating' && "Generating questions with Gemini AI..."}
-                            </p>
-                            {extractedTextPreview && (
-                              <div className="mt-2 p-2 bg-gray-100 dark:bg-gray-700 rounded max-h-24 overflow-y-auto text-sm text-left">
-                                <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Content Preview:</p>
-                                {extractedTextPreview}
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-              </motion.div>
             </div>
-          </div>
-        </motion.div>
-      ) : (
-        <motion.div
-          key="quizPage"
-          initial={{ opacity: 0, x: 20 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ duration: 0.3 }}
-          className="min-h-screen"
-        >
-          <QuizPage 
-            file={file}
-            flashcards={flashcards} 
-            mcqs={mcqs} 
-            matchingQuestions={matchingQuestions} 
-            trueFalseQuestions={trueFalseQuestions}
-            onBackToUpload={() => {
-              setShowQuizPage(false);
-              setFile(null);
-              setProcessingStatus('idle');
-              setExtractedTextPreview(null);
-            }}
-          />
-        </motion.div>
-      )}
-    </AnimatePresence>
-  );
+          </motion.div>
+        ) : (
+          <motion.div
+            key="quizPage"
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.3 }}
+            className="min-h-screen"
+          >
+            <QuizPage 
+              file={file}
+              flashcards={flashcards} 
+              mcqs={mcqs} 
+              matchingQuestions={matchingQuestions} 
+              trueFalseQuestions={trueFalseQuestions}
+              onBackToUpload={() => {
+                setShowQuizPage(false);
+                setFile(null);
+                setProcessingStatus('idle');
+                setExtractedTextPreview(null);
+                setCustomText('');
+              }}
+              onGenerateMore={handleGenerateMore}
+            />
+          </motion.div>
+        )}
+      </AnimatePresence>
+    );
 };
 
 export default HeroSection;

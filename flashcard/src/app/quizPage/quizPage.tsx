@@ -15,7 +15,6 @@ import { MatchingSection } from '../components/matching-questions/matching-quest
 import { MCQSection } from '../components/MCQS/mcq-section';
 
 // Define TypeScript interfaces
-
 interface QuizPageProps {
   file: File | null;
   flashcards: Flashcard[];
@@ -23,6 +22,7 @@ interface QuizPageProps {
   matchingQuestions: MatchingQuestion[];
   trueFalseQuestions: TrueFalseQuestion[];
   onBackToUpload: () => void;
+  onGenerateMore?: (type: 'flashcards' | 'mcqs' | 'matching' | 'trueFalse', quantity: number) => Promise<void>;
 }
 
 const QuizPage: React.FC<QuizPageProps> = ({ 
@@ -31,9 +31,11 @@ const QuizPage: React.FC<QuizPageProps> = ({
   mcqs, 
   matchingQuestions, 
   trueFalseQuestions, 
-  onBackToUpload 
+  onBackToUpload,
+  onGenerateMore 
 }) => {
   const [activeTab, setActiveTab] = useState<"flashcards" | "mcq" | "matching" | "truefalse">("flashcards");
+  const [isGenerating, setIsGenerating] = useState<boolean>(false);
   
   // Flashcard states
   const [currentCardIndex, setCurrentCardIndex] = useState<number>(0);
@@ -56,123 +58,20 @@ const QuizPage: React.FC<QuizPageProps> = ({
   const [currentTFIndex, setCurrentTFIndex] = useState<number>(0);
   const [selectedTFAnswer, setSelectedTFAnswer] = useState<boolean | null>(null);
   const [showTFResult, setShowTFResult] = useState<boolean>(false);
-  
+
   const router = useRouter();
 
-  // Flashcards functions
-  const flipCard = () => {
-    setIsFlipped(!isFlipped);
-  };
-
-  const nextCard = () => {
-    if (currentCardIndex < flashcards.length - 1) {
-      setIsFlipped(false);
-      setSlideDirection("right");
-      setCurrentCardIndex(currentCardIndex + 1);
-    }
-  };
-
-  const prevCard = () => {
-    if (currentCardIndex > 0) {
-      setIsFlipped(false);
-      setSlideDirection("left");
-      setCurrentCardIndex(currentCardIndex - 1);
-    }
-  };
-
-  // MCQ functions
-  const nextMCQ = () => {
-    if (currentMCQIndex < mcqs.length - 1) {
-      setSelectedMCQAnswer(null);
-      setShowMCQCorrectAnswer(false);
-      setTimeout(() => {
-        setCurrentMCQIndex(currentMCQIndex + 1);
-      }, 300);
-    }
-  };
-
-  const prevMCQ = () => {
-    if (currentMCQIndex > 0) {
-      setSelectedMCQAnswer(null);
-      setShowMCQCorrectAnswer(false);
-      setTimeout(() => {
-        setCurrentMCQIndex(currentMCQIndex - 1);
-      }, 300);
-    }
-  };
-
-  const handleMCQAnswerSelect = (index: number) => {
-    setSelectedMCQAnswer(index);
-    setShowMCQCorrectAnswer(true);
-  };
-
-  // Matching functions
-  const handleLeftItemClick = (index: number) => {
-    if (matchingCompleted) return;
-    setActiveLeftItem(index);
-  };
-
-  const handleRightItemClick = (index: number) => {
-    if (activeLeftItem === null || matchingCompleted) return;
+  // Handler for generating more questions
+  const handleGenerateMore = async (type: 'flashcards' | 'mcqs' | 'matching' | 'trueFalse', quantity: number) => {
+    if (!onGenerateMore) return;
     
-    // Update selected matches
-    const newSelectedMatches = [...selectedMatches];
-    newSelectedMatches[activeLeftItem] = index;
-    setSelectedMatches(newSelectedMatches);
-    
-    // Check if all items are matched
-    if (newSelectedMatches.filter(match => match !== undefined).length === matchingQuestions[currentMatchingIndex].leftItems.length) {
-      // Evaluate results
-      const results = newSelectedMatches.map((match, idx) => 
-        match === matchingQuestions[currentMatchingIndex].correctMatches[idx]
-      );
-      setMatchingResults(results);
-      setMatchingCompleted(true);
-    }
-    
-    setActiveLeftItem(null);
-  };
-
-  const resetMatching = () => {
-    setSelectedMatches([]);
-    setActiveLeftItem(null);
-    setMatchingCompleted(false);
-    setMatchingResults([]);
-  };
-
-  const nextMatching = () => {
-    if (currentMatchingIndex < matchingQuestions.length - 1) {
-      resetMatching();
-      setCurrentMatchingIndex(currentMatchingIndex + 1);
-    }
-  };
-
-  const prevMatching = () => {
-    if (currentMatchingIndex > 0) {
-      resetMatching();
-      setCurrentMatchingIndex(currentMatchingIndex - 1);
-    }
-  };
-
-  // True/False functions
-  const handleTFAnswerSelect = (answer: boolean) => {
-    setSelectedTFAnswer(answer);
-    setShowTFResult(true);
-  };
-
-  const nextTF = () => {
-    if (currentTFIndex < trueFalseQuestions.length - 1) {
-      setSelectedTFAnswer(null);
-      setShowTFResult(false);
-      setCurrentTFIndex(currentTFIndex + 1);
-    }
-  };
-
-  const prevTF = () => {
-    if (currentTFIndex > 0) {
-      setSelectedTFAnswer(null);
-      setShowTFResult(false);
-      setCurrentTFIndex(currentTFIndex - 1);
+    setIsGenerating(true);
+    try {
+      await onGenerateMore(type, quantity);
+    } catch (error) {
+      console.error(`Error generating more ${type} questions:`, error);
+    } finally {
+      setIsGenerating(false);
     }
   };
 
@@ -209,17 +108,6 @@ const QuizPage: React.FC<QuizPageProps> = ({
       opacity: 0,
       scale: 0.8,
     },
-  };
-
-  // Get connection line position for matching question
-  const getConnectionLine = (leftIdx: number, rightIdx: number) => {
-    // This is a simplified approach. In a real app, you'd use DOM elements' positions
-    const leftX = 150;
-    const rightX = 350;
-    const leftY = 100 + leftIdx * 60 + 25;
-    const rightY = 100 + rightIdx * 60 + 25;
-    
-    return `M${leftX},${leftY} C${(leftX+rightX)/2},${leftY} ${(leftX+rightX)/2},${rightY} ${rightX},${rightY}`;
   };
 
   return (
@@ -316,39 +204,131 @@ const QuizPage: React.FC<QuizPageProps> = ({
         </div>
         
         <div className="p-6">
-        <AnimatePresence mode="wait">
-  {/* FLASHCARDS TAB */}
-  {activeTab === "flashcards" && (
-    <FlashcardSection 
-      key="flashcards"
-      flashcards={flashcards}
-    />
-  )}
+          <AnimatePresence mode="wait">
+            {/* FLASHCARDS TAB */}
+            {activeTab === "flashcards" && (
+              <motion.div
+                key="flashcards"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.3 }}
+              >
+                <div className="flex justify-between items-center mb-6">
+                  <h2 className="text-2xl font-bold text-gray-800 dark:text-white">Flashcards</h2>
+                  {onGenerateMore && (
+                    <Button 
+                      onClick={() => handleGenerateMore('flashcards', 5)}
+                      variant="outline"
+                      disabled={isGenerating}
+                      className="flex items-center space-x-1"
+                    >
+                      <span>{isGenerating ? 'Generating...' : 'Generate 5 More'}</span>
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                        <path fillRule="evenodd" d="M10 5a1 1 0 011 1v3h3a1 1 0 110 2h-3v3a1 1 0 11-2 0v-3H6a1 1 0 110-2h3V6a1 1 0 011-1z" clipRule="evenodd" />
+                      </svg>
+                    </Button>
+                  )}
+                </div>
+                <FlashcardSection 
+                  flashcards={flashcards}
+                />
+              </motion.div>
+            )}
 
-  {/* MCQ TAB */}
-  {activeTab === "mcq" && (
-    <MCQSection 
-      key="mcq"
-      mcqs={mcqs}
-    />
-  )}
-  
-  {/* MATCHING QUESTIONS TAB */}
-  {activeTab === "matching" && (
-    <MatchingSection 
-      key="matching"
-      matchingQuestions={matchingQuestions}
-    />
-  )}
-  
-  {/* TRUE/FALSE TAB */}
-  {activeTab === "truefalse" && (
-    <TrueFalseSection 
-      key="truefalse"
-      trueFalseQuestions={trueFalseQuestions}
-    />
-  )}
-</AnimatePresence>
+            {/* MCQ TAB */}
+            {activeTab === "mcq" && (
+              <motion.div
+                key="mcq"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.3 }}
+              >
+                <div className="flex justify-between items-center mb-6">
+                  <h2 className="text-2xl font-bold text-gray-800 dark:text-white">Multiple Choice Questions</h2>
+                  {onGenerateMore && (
+                    <Button 
+                      onClick={() => handleGenerateMore('mcqs', 5)}
+                      variant="outline"
+                      disabled={isGenerating}
+                      className="flex items-center space-x-1"
+                    >
+                      <span>{isGenerating ? 'Generating...' : 'Generate 5 More'}</span>
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                        <path fillRule="evenodd" d="M10 5a1 1 0 011 1v3h3a1 1 0 110 2h-3v3a1 1 0 11-2 0v-3H6a1 1 0 110-2h3V6a1 1 0 011-1z" clipRule="evenodd" />
+                      </svg>
+                    </Button>
+                  )}
+                </div>
+                <MCQSection 
+                  mcqs={mcqs}
+                />
+              </motion.div>
+            )}
+            
+            {/* MATCHING QUESTIONS TAB */}
+            {activeTab === "matching" && (
+              <motion.div
+                key="matching"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.3 }}
+              >
+                <div className="flex justify-between items-center mb-6">
+                  <h2 className="text-2xl font-bold text-gray-800 dark:text-white">Matching Questions</h2>
+                  {onGenerateMore && (
+                    <Button 
+                      onClick={() => handleGenerateMore('matching', 3)}
+                      variant="outline"
+                      disabled={isGenerating}
+                      className="flex items-center space-x-1"
+                    >
+                      <span>{isGenerating ? 'Generating...' : 'Generate 3 More'}</span>
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                        <path fillRule="evenodd" d="M10 5a1 1 0 011 1v3h3a1 1 0 110 2h-3v3a1 1 0 11-2 0v-3H6a1 1 0 110-2h3V6a1 1 0 011-1z" clipRule="evenodd" />
+                      </svg>
+                    </Button>
+                  )}
+                </div>
+                <MatchingSection 
+                  matchingQuestions={matchingQuestions}
+                />
+              </motion.div>
+            )}
+            
+            {/* TRUE/FALSE TAB */}
+            {activeTab === "truefalse" && (
+              <motion.div
+                key="truefalse"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.3 }}
+              >
+                <div className="flex justify-between items-center mb-6">
+                  <h2 className="text-2xl font-bold text-gray-800 dark:text-white">True/False Questions</h2>
+                  {onGenerateMore && (
+                    <Button 
+                      onClick={() => handleGenerateMore('trueFalse', 5)}
+                      variant="outline"
+                      disabled={isGenerating}
+                      className="flex items-center space-x-1"
+                    >
+                      <span>{isGenerating ? 'Generating...' : 'Generate 5 More'}</span>
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                        <path fillRule="evenodd" d="M10 5a1 1 0 011 1v3h3a1 1 0 110 2h-3v3a1 1 0 11-2 0v-3H6a1 1 0 110-2h3V6a1 1 0 011-1z" clipRule="evenodd" />
+                      </svg>
+                    </Button>
+                  )}
+                </div>
+                <TrueFalseSection 
+                  trueFalseQuestions={trueFalseQuestions}
+                />
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
       </motion.div>
     </div>
