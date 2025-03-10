@@ -71,6 +71,8 @@
     "ui": "^0.2.4",
     "vaul": "^1.1.2",
     "xlsx": "^0.18.5",
+    "youtube-captions-scraper": "^2.0.3",
+    "ytdl-core": "^4.11.5",
     "zod": "^3.24.2"
   },
   "devDependencies": {

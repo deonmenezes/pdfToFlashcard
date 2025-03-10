@@ -627,8 +627,12 @@ const HeroSection: React.FC = () => {
                           onChange={handleFileInput}
                           multiple // Enable multiple file selection
                         />
-                        <Button variant="outline" className="text-lg py-6 px-8 dark:text-white dark:border-gray-600">
-                          Learn More
+                        <Button 
+                          variant="outline" 
+                          className="text-lg py-6 px-8 dark:text-white dark:border-gray-600"
+                          onClick={() => window.location.href = '/allgames'}
+                        >
+                          All Games
                         </Button>
                       </div>
                     )}
